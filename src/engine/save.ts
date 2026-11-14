@@ -10,7 +10,7 @@ export type PlayerVehicleId = 'gol-g5' | 'uno' | 'palio' | 'celta' | 'corsa' | '
 export type ScoreEntry = { name: string; score: number; seconds: number; at: number }
 
 export type SaveData = {
-  version: 4
+  version: 5
   /** '' = never chosen; the game follows the browser language until the player picks one. */
   locale: Locale | ''
   musicVolume: number
@@ -23,6 +23,8 @@ export type SaveData = {
   tutorialDone: boolean
   playerName: string
   playerVehicle: PlayerVehicleId
+  playerPaint: string
+  unlockedPaints: string[]
   unlockedVehicles: PlayerVehicleId[]
   credits: number
   lifetimeCredits: number
@@ -30,14 +32,14 @@ export type SaveData = {
   leaderboard: ScoreEntry[]
 }
 
-export const SAVE_KEY = 'asfalto.save.v4'
-const LEGACY_SAVE_KEYS = ['asfalto.save.v3', 'asfalto.save.v2', 'asfalto.save.v1']
+export const SAVE_KEY = 'asfalto.save.v5'
+const LEGACY_SAVE_KEYS = ['asfalto.save.v4', 'asfalto.save.v3', 'asfalto.save.v2', 'asfalto.save.v1']
 const VEHICLES: PlayerVehicleId[] = ['gol-g5', 'uno', 'palio', 'celta', 'corsa', 'onix', 'hb20', 'saveiro', 'fiorino']
 export const LEADERBOARD_SIZE = 10
 
 export function defaultSave(): SaveData {
   return {
-    version: 4,
+    version: 5,
     locale: '',
     musicVolume: 0.7,
     sfxVolume: 0.8,
@@ -49,6 +51,8 @@ export function defaultSave(): SaveData {
     tutorialDone: false,
     playerName: 'PILOTO',
     playerVehicle: 'gol-g5',
+    playerPaint: '#4a5052',
+    unlockedPaints: ['#4a5052'],
     unlockedVehicles: ['gol-g5'],
     credits: 0,
     lifetimeCredits: 0,
@@ -71,18 +75,24 @@ export function parseSave(raw: string | null): SaveData {
   } catch {
     return base
   }
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4) return base
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5) return base
   const unlockedVehicles: PlayerVehicleId[] = data.version === 3
     ? [...VEHICLES] // Version 3 exposed the whole garage for free; preserve every vehicle already available.
     : data.version === 4 && Array.isArray(data.unlockedVehicles)
       ? [...new Set(data.unlockedVehicles.filter((id): id is PlayerVehicleId => VEHICLES.includes(id as PlayerVehicleId)))]
       : ['gol-g5']
   if (!unlockedVehicles.includes('gol-g5')) unlockedVehicles.unshift('gol-g5')
+  const unlockedPaints = data.version === 5 && Array.isArray(data.unlockedPaints)
+    ? [...new Set(data.unlockedPaints.filter((paint): paint is string => typeof paint === 'string' && /^#[0-9a-fA-F]{6}$/.test(paint)))]
+    : ['#4a5052']
+  if (!unlockedPaints.includes('#4a5052')) unlockedPaints.unshift('#4a5052')
+  const requestedPaint = typeof data.playerPaint === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.playerPaint) ? data.playerPaint.toLowerCase() : base.playerPaint
+  const playerPaint = unlockedPaints.includes(requestedPaint) ? requestedPaint : '#4a5052'
   const requestedVehicle = VEHICLES.includes(data.playerVehicle as PlayerVehicleId) ? data.playerVehicle as PlayerVehicleId : base.playerVehicle
   const playerVehicle = unlockedVehicles.includes(requestedVehicle) ? requestedVehicle : 'gol-g5'
   const board = Array.isArray(data.leaderboard) ? data.leaderboard : []
   return {
-    version: 4,
+    version: 5,
     locale: data.locale === 'en' || data.locale === 'zh-CN' ? data.locale : '',
     musicVolume: clamp01(data.musicVolume, base.musicVolume),
     sfxVolume: clamp01(data.sfxVolume, base.sfxVolume),
@@ -94,6 +104,8 @@ export function parseSave(raw: string | null): SaveData {
     tutorialDone: data.tutorialDone === true,
     playerName: typeof data.playerName === 'string' && data.playerName.trim() ? data.playerName.trim().slice(0, 16) : base.playerName,
     playerVehicle,
+    playerPaint,
+    unlockedPaints,
     unlockedVehicles,
     credits: Number.isFinite(data.credits) ? Math.max(0, Math.floor(data.credits as number)) : base.credits,
     lifetimeCredits: Number.isFinite(data.lifetimeCredits) ? Math.max(0, Math.floor(data.lifetimeCredits as number)) : base.lifetimeCredits,
