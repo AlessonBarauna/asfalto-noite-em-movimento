@@ -10,7 +10,7 @@ export type PlayerVehicleId = 'gol-g5' | 'uno' | 'palio' | 'celta' | 'corsa' | '
 export type ScoreEntry = { name: string; score: number; seconds: number; at: number }
 
 export type SaveData = {
-  version: 4
+  version: 5
   /** '' = never chosen; the game follows the browser language until the player picks one. */
   locale: Locale | ''
   musicVolume: number
