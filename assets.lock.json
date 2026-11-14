@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "groups": {
+    "sons-da-pista": {
+      "name": "Sons da pista",
+      "order": 10
+    },
+    "carro-principal": {
+      "name": "Carro principal",
+      "order": 20
+    }
+  },
+  "bundles": {},
+  "assets": {
+    "assets/audio/Sound effects/Car2_Engine_Loop.ogg": {
+      "path": "/manus-storage/game/sha256/037adf851d82c7e13e843b38fe0b95ba0a8b64d7f61cff3ce3e81dbb6dc866a2.ogg",
+      "sha256": "sha256:037adf851d82c7e13e843b38fe0b95ba0a8b64d7f61cff3ce3e81dbb6dc866a2",
+      "size": 56319,
+      "assetType": "audio",
+      "groupId": "sons-da-pista"
+    },
+    "assets/audio/impact-crash-01.wav": {
+      "path": "/manus-storage/game/sha256/fff994e3eeaa9569d79a9f66884042305335a37ebcae45c8e9f4548b08a7d5e9.wav",
+      "sha256": "sha256:fff994e3eeaa9569d79a9f66884042305335a37ebcae45c8e9f4548b08a7d5e9",
+      "size": 352878,
+      "assetType": "audio",
+      "groupId": "sons-da-pista"
+    },
+    "assets/models/carro-protagonista.glb": {
+      "path": "/manus-storage/game/sha256/1f4b539bc0028e1ca3692d632d1bd33e2a3f388134cee12bcc62cc0ff24fc33a.glb",
+      "sha256": "sha256:1f4b539bc0028e1ca3692d632d1bd33e2a3f388134cee12bcc62cc0ff24fc33a",
+      "size": 1807808,
+      "assetType": "model",
+      "groupId": "carro-principal"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+shots/
+.env
+.env.*
+!.env.example
+.manus-webdev/preview-identity.json

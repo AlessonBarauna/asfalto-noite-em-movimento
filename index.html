@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#080d14" />
+    <meta name="description" content="Desvie do tráfego numa corrida arcade noturna. Quanto tempo você aguenta?" />
+    <title>Asfalto: Noite em Movimento</title>
+    <link rel="icon" type="image/svg+xml" href="/asfalto-icon.svg" />
+    <link rel="preload" href="./fonts/ManusCC0-Bold.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="preload" href="./fonts/ManusCC0-Regular.ttf" as="font" type="font/ttf" crossorigin />
+  </head>
+  <body>
+    <canvas id="game" aria-label="Jogo Asfalto: Noite em Movimento"></canvas>
+    <div id="ui">
+      <section class="screen-boot" aria-label="Carregando Asfalto">
+        <img src="/asfalto-icon.svg" alt="" width="48" height="48" />
+        <div class="boot-kicker">CORRIDA ARCADE · CIDADE À NOITE</div>
+        <h1>ASFALTO</h1>
+        <p>Noite em Movimento</p>
+        <div class="boot-progress"><i></i></div>
+        <span class="boot-status">Preparando o motor…</span>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

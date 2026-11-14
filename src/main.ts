@@ -1,0 +1,157 @@
+import './styles/race-game.css'
+import { Assets } from './engine/assets'
+import { Audio } from './engine/audio'
+import { Input } from './engine/input'
+import { GameLoop } from './engine/loop'
+import { Renderer, suggestQuality } from './engine/renderer'
+import { SAVE_KEY, SaveStore, insertScore } from './engine/save'
+import { RaceGame, type RaceResult } from './game/race-game'
+import { tuning } from './game/tuning'
+import { TouchControls } from './ui/touch'
+import { RaceUI } from './ui/race-ui'
+
+const CAR_MODEL_URL = '/manus-storage/game/sha256/1f4b539bc0028e1ca3692d632d1bd33e2a3f388134cee12bcc62cc0ff24fc33a.glb'
+const CRASH_SOUND_URL = '/manus-storage/game/sha256/fff994e3eeaa9569d79a9f66884042305335a37ebcae45c8e9f4548b08a7d5e9.wav'
+const ENGINE_SOUND_URL = '/manus-storage/game/sha256/037adf851d82c7e13e843b38fe0b95ba0a8b64d7f61cff3ce3e81dbb6dc866a2.ogg'
+let activeUI: RaceUI | undefined
+
+async function boot(): Promise<void> {
+  const canvas = document.querySelector<HTMLCanvasElement>('#game')
+  const root = document.querySelector<HTMLElement>('#ui')
+  if (!canvas || !root) throw new Error('Canvas ou camada de interface indisponível')
+
+  const firstRun = safeGet(SAVE_KEY) === null
+  const save = new SaveStore()
+  if (firstRun) save.update({ quality: suggestQuality() })
+  const input = new Input(canvas)
+  const audio = new Audio()
+  const ui = new RaceUI(root, {
+    start: () => startRun(),
+    updateName: name => save.update({ playerName: name }),
+    pause: () => pauseRun(),
+    resume: () => resumeRun(),
+    restart: () => startRun(),
+    toTitle: () => { game?.toTitle(); ui.showTitle(bestScore(), save.data.playerName) },
+    openLeaderboard: () => { ui.showLeaderboard(save.data.leaderboard) },
+  })
+  activeUI = ui
+  const applySettings = () => audio.setVolumes(save.data.musicVolume, save.data.sfxVolume, save.data.muted)
+  applySettings()
+
+  let game: RaceGame | undefined
+  let loop: GameLoop | undefined
+  let resultHandled = false
+  let crashSound: AudioBuffer | undefined
+  let engineSound: AudioBuffer | undefined
+
+  function bestScore(): number {
+    return save.data.leaderboard[0]?.score ?? 0
+  }
+  function startRun(): void {
+    if (!game) return
+    audio.unlock()
+    game.start()
+    resultHandled = false
+    ui.show('hud')
+    loop?.resetAccumulator()
+  }
+  function pauseRun(): void {
+    if (!game || game.mode !== 'playing') return
+    game.pause()
+    ui.showPause()
+  }
+  function resumeRun(): void {
+    if (!game || game.mode !== 'paused') return
+    audio.unlock()
+    game.resume()
+    ui.show('hud')
+    loop?.resetAccumulator()
+  }
+
+  ui.setBootProgress(0.08, 'Montando o carro e carregando a cidade…')
+  const assets = new Assets()
+  const stopProgress = assets.onProgress(progress => ui.setBootProgress(0.08 + progress * 0.62))
+  const [car, crash, engine] = await Promise.all([
+    assets.gltf(CAR_MODEL_URL).then(gltf => gltf.scene).catch(error => {
+      console.error('Carro 3D registrado, mas ainda não foi possível carregá-lo:', error)
+      return undefined
+    }),
+    loadSound(audio, CRASH_SOUND_URL),
+    loadSound(audio, ENGINE_SOUND_URL),
+    document.fonts.ready,
+  ]).then(([model, crashBuffer, engineBuffer]) => [model, crashBuffer, engineBuffer] as const)
+  stopProgress()
+  crashSound = crash ?? undefined
+  engineSound = engine ?? undefined
+
+  ui.setBootProgress(0.76, 'Preparando o trânsito…')
+  const renderer = new Renderer(canvas, save.data.quality)
+  game = new RaceGame(renderer, input, audio, car, { crash: crashSound, engine: engineSound })
+  if (import.meta.env.DEV) {
+    const [{ registerGameTuning }] = await Promise.all([import('../scripts/manus-tuning/adapter.js')])
+    void registerGameTuning(tuning)
+  }
+  new TouchControls(root, input, () => game?.mode === 'playing')
+  ui.setBootProgress(1, 'A cidade está pronta.')
+  ui.showTitle(bestScore(), save.data.playerName)
+
+  const currentGame = game
+  loop = new GameLoop({
+    beforeFrame: frameSeconds => {
+      input.update(frameSeconds)
+      if (input.consume('pause')) {
+        if (currentGame.mode === 'playing') pauseRun()
+        else if (currentGame.mode === 'paused') resumeRun()
+      }
+    },
+    step: dt => {
+      if (currentGame.mode === 'title' && (input.consume('confirm') || input.consume('jump'))) startRun()
+      currentGame.step(dt)
+    },
+    render: (_alpha, frameSeconds) => {
+      const state = currentGame.render(frameSeconds)
+      if (currentGame.mode === 'playing' || currentGame.mode === 'ended') ui.update(state)
+      if (currentGame.mode === 'ended' && !resultHandled) {
+        resultHandled = true
+        const result = currentGame.result
+        if (result) finishRun(result)
+      }
+      loop!.paused = currentGame.mode !== 'playing'
+      input.endFrame()
+    },
+  })
+  loop.start()
+
+  function finishRun(result: RaceResult): void {
+    const previousBest = bestScore()
+    let nextBest = previousBest
+    if (!result.unranked) {
+      const entry = { name: save.data.playerName, score: result.score, seconds: result.seconds, at: Date.now() }
+      const inserted = insertScore(save.data.leaderboard, entry)
+      save.update({ leaderboard: inserted.board })
+      nextBest = Math.max(previousBest, inserted.board[0]?.score ?? 0)
+    }
+    ui.showResults(result.score, result.distance, result.nearMisses, result.unranked ? previousBest : nextBest, result.unranked)
+  }
+
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseRun() })
+  window.addEventListener('game:pause', pauseRun)
+  ;(window as unknown as { __game: unknown }).__game = { game: currentGame, ui, input, save }
+}
+
+async function loadSound(audio: Audio, url: string | undefined): Promise<AudioBuffer | null> {
+  if (!url) return null
+  try { return await audio.load(url) } catch (error) {
+    console.warn(`Efeito de áudio opcional indisponível: ${url}`, error)
+    return null
+  }
+}
+
+function safeGet(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}
+
+boot().catch(error => {
+  console.error(error)
+  activeUI?.fatal(String((error as Error)?.message ?? error).replace(/[<>&]/g, ''))
+})
