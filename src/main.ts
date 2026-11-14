@@ -47,7 +47,7 @@ async function boot(): Promise<void> {
         return false
       }
       save.update({ credits: purchase.balance, unlockedVehicles: purchase.unlockedVehicles })
-      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits)
+      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints)
       ui.toast('VEÍCULO DESBLOQUEADO')
       return true
     },
