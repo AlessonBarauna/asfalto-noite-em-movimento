@@ -90,7 +90,7 @@ export function parseSave(raw: string | null): SaveData {
       ? [...new Set(data.unlockedVehicles.filter((id): id is PlayerVehicleId => VEHICLES.includes(id as PlayerVehicleId)))]
       : ['gol-g5']
   if (!unlockedVehicles.includes('gol-g5')) unlockedVehicles.unshift('gol-g5')
-  const unlockedPaints = data.version === 5 && Array.isArray(data.unlockedPaints)
+  const unlockedPaints = data.version >= 5 && Array.isArray(data.unlockedPaints)
     ? [...new Set(data.unlockedPaints.filter((paint): paint is string => typeof paint === 'string' && /^#[0-9a-fA-F]{6}$/.test(paint)))]
     : ['#4a5052']
   if (!unlockedPaints.includes('#4a5052')) unlockedPaints.unshift('#4a5052')
