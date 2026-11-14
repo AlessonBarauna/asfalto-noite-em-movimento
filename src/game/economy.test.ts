@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateRacePayout, purchaseVehicle, VEHICLE_PRICES, purchasePaint, PAINT_OPTIONS, purchaseWheels, purchaseTint, purchaseSpoiler, purchaseSuspension } from './economy'
+import { calculateRacePayout, purchaseVehicle, VEHICLE_PRICES, purchasePaint, PAINT_OPTIONS, purchaseWheels, purchaseTint, purchaseSpoiler, purchaseSuspension, purchaseExhaust, purchaseHeadlights } from './economy'
 
 describe('race economy', () => {
   it('rewards distance in complete 100 m blocks', () => {
@@ -84,4 +84,10 @@ describe('wheel and tint accessory economy', () => {
 describe('spoiler and suspension economy', () => {
  it('purchases exterior upgrades', () => {expect(purchaseSpoiler(700,['none'],'street')).toMatchObject({success:true,balance:20});expect(purchaseSuspension(650,['stock'],'lowered')).toMatchObject({success:true,balance:50})})
  it('blocks duplicate and unaffordable upgrades', () => {expect(purchaseSpoiler(1000,['none','street'],'street').reason).toBe('already-owned');expect(purchaseSuspension(200,['stock'],'slammed').reason).toBe('insufficient-credits')})
+})
+
+
+describe('exhaust and headlight economy', () => {
+ it('purchases sport exhaust and xenon headlights', () => { expect(purchaseExhaust(500,['stock'],'sport')).toMatchObject({success:true,balance:80}); expect(purchaseHeadlights(600,['halogen'],'xenon')).toMatchObject({success:true,balance:150}) })
+ it('blocks duplicate, unaffordable and unknown upgrades', () => { expect(purchaseExhaust(900,['stock','sport'],'sport').reason).toBe('already-owned'); expect(purchaseHeadlights(100,['halogen'],'led').reason).toBe('insufficient-credits'); expect(purchaseHeadlights(1000,['halogen'],'laser').success).toBe(false) })
 })
