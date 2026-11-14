@@ -69,7 +69,7 @@ export class RaceGame {
     this.world.scene.add(this.player)
     this.player.add(this.playerVisual)
     this.playerVisual.add(createGolG5Model(PLAYER_PAINT))
-    this.player.rotation.y = Math.PI // glTF vehicles face +Z; the player drives toward -Z.
+    this.player.rotation.y = Math.PI // The player car faces +Z; rotate it toward the road's -Z direction.
     this.player.position.set(0, 0.02, RACE_CONFIG.playerZ)
     this.createTrafficPool()
     this.camera.position.set(0, 5.2, RACE_CONFIG.playerZ + 12.6)
