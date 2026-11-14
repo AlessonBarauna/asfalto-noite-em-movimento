@@ -51,6 +51,33 @@ export function isNearMiss(playerX: number, trafficX: number): boolean {
   return gap >= 1.52 && gap < 4.15
 }
 
+export type TrafficLanePosition = { lane: number; z: number }
+
+/**
+ * Chooses a safe adjacent lane for a vehicle trying to pass slower traffic.
+ * The preferred side is checked first; the other side is used as a fallback.
+ */
+export function chooseSafeAdjacentLane(
+  currentLane: number,
+  currentZ: number,
+  traffic: TrafficLanePosition[],
+  minimumGap: number,
+  preferredDirection: -1 | 1 = 1,
+): number | null {
+  if (!Number.isInteger(currentLane) || currentLane < 0 || currentLane > 2) return null
+  if (!Number.isFinite(currentZ) || !Number.isFinite(minimumGap) || minimumGap < 0) return null
+
+  const candidates = [currentLane + preferredDirection, currentLane - preferredDirection]
+  for (const lane of candidates) {
+    if (lane < 0 || lane > 2) continue
+    const isClear = traffic.every(vehicle =>
+      vehicle.lane !== lane || Math.abs(vehicle.z - currentZ) >= minimumGap,
+    )
+    if (isClear) return lane
+  }
+  return null
+}
+
 /** Returns one vehicle early in a run and occasional two-lane traffic waves later on. */
 export function trafficWaveSize(elapsedSeconds: number, roll: number): 1 | 2 {
   const elapsed = Math.max(0, elapsedSeconds)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateScore, clampSteering, collides, hasTrafficSpawnGap, isNearMiss, laneCenter, trafficDifficulty, trafficSpeedFactor, trafficWaveSize } from './race-rules'
+import { calculateScore, chooseSafeAdjacentLane, clampSteering, collides, hasTrafficSpawnGap, isNearMiss, laneCenter, trafficDifficulty, trafficSpeedFactor, trafficWaveSize } from './race-rules'
 import { RACE_CONFIG } from './race-config'
 
 describe('race rules', () => {
@@ -58,6 +58,40 @@ describe('race rules', () => {
     expect(middle.speedFactor).toBeGreaterThan(early.speedFactor)
     expect(late.interval).toBe(RACE_CONFIG.minTrafficInterval)
     expect(late.speedFactor).toBe(1.66)
+  })
+
+  it('chooses a safe adjacent lane to overtake slower traffic', () => {
+    const traffic = [
+      { lane: 1, z: -100 },
+      { lane: 0, z: -82 },
+    ]
+
+    expect(chooseSafeAdjacentLane(1, -100, traffic, 26, 1)).toBe(2)
+    expect(chooseSafeAdjacentLane(1, -100, [{ lane: 1, z: -100 }], 26, 1)).toBe(2)
+  })
+
+  it('uses the other side when the preferred adjacent lane is blocked', () => {
+    const traffic = [
+      { lane: 2, z: -100 },
+      { lane: 0, z: -150 },
+    ]
+
+    expect(chooseSafeAdjacentLane(1, -100, traffic, 26, 1)).toBe(0)
+  })
+
+  it('does not change lanes when both adjacent lanes are unsafe or unavailable', () => {
+    const traffic = [
+      { lane: 0, z: -110 },
+      { lane: 2, z: -90 },
+    ]
+
+    expect(chooseSafeAdjacentLane(1, -100, traffic, 26)).toBeNull()
+    expect(chooseSafeAdjacentLane(0, -100, [{ lane: 1, z: -100 }], 26, -1)).toBeNull()
+    expect(chooseSafeAdjacentLane(3, -100, [], 26)).toBeNull()
+  })
+
+  it('allows a lane when the gap is exactly the minimum distance', () => {
+    expect(chooseSafeAdjacentLane(1, -100, [{ lane: 2, z: -126 }], 26)).toBe(2)
   })
 
   it('introduces multi-car waves gradually and deterministically', () => {
