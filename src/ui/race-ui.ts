@@ -21,6 +21,7 @@ export type RaceUiActions = {
   toTitle(): void
   openLeaderboard(): void
   selectVehicle(model: BrazilianTrafficModel): void
+  openGarage(): void
 }
 
 export class RaceUI {
@@ -147,7 +148,7 @@ export class RaceUI {
       case 'restart': this.actions.restart(); break
       case 'title': this.actions.toTitle(); break
       case 'leaderboard': this.actions.openLeaderboard(); break
-      case 'garage': this.showGarage('gol-g5'); break
+      case 'garage': this.actions.openGarage(); break
       case 'garage-back': this.show(this.returnAfterGarage); break
       case 'back': this.show(this.returnAfterBoard); break
     }
