@@ -49,3 +49,29 @@ export function purchaseVehicle(
   owned.add(vehicle)
   return { success: true, reason: 'purchased', balance: currentBalance - price, unlockedVehicles: [...owned] }
 }
+
+
+export const PAINT_OPTIONS = [
+  { id: '#4a5052', label: 'Grafite', price: 0 },
+  { id: '#f2f0e8', label: 'Branco', price: 120 },
+  { id: '#d71920', label: 'Vermelho', price: 180 },
+  { id: '#164b9a', label: 'Azul', price: 180 },
+  { id: '#111315', label: 'Preto', price: 220 },
+  { id: '#d5a52a', label: 'Amarelo', price: 250 },
+  { id: '#16804a', label: 'Verde', price: 280 },
+  { id: '#8b3fa5', label: 'Roxo', price: 320 },
+] as const
+
+export type PaintPurchase = { success: boolean; reason: 'already-owned' | 'insufficient-credits' | 'purchased'; balance: number; unlockedPaints: string[] }
+
+export function purchasePaint(balance: number, unlockedPaints: string[], paint: string): PaintPurchase {
+  const option = PAINT_OPTIONS.find(item => item.id === paint)
+  const owned = new Set(unlockedPaints)
+  owned.add('#4a5052')
+  const currentBalance = Math.max(0, Number.isFinite(balance) ? Math.floor(balance) : 0)
+  if (!option) return { success: false, reason: 'insufficient-credits', balance: currentBalance, unlockedPaints: [...owned] }
+  if (owned.has(paint)) return { success: false, reason: 'already-owned', balance: currentBalance, unlockedPaints: [...owned] }
+  if (currentBalance < option.price) return { success: false, reason: 'insufficient-credits', balance: currentBalance, unlockedPaints: [...owned] }
+  owned.add(paint)
+  return { success: true, reason: 'purchased', balance: currentBalance - option.price, unlockedPaints: [...owned] }
+}
