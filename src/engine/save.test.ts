@@ -11,7 +11,7 @@ describe('versioned save and vehicle unlock migration', () => {
 
   it('preserves the complete free garage from version 3 saves', () => {
     const save = parseSave(JSON.stringify({ version: 3, playerVehicle: 'saveiro', credits: 250 }))
-    expect(save.version).toBe(4)
+    expect(save.version).toBe(6)
     expect(save.playerVehicle).toBe('saveiro')
     expect(save.unlockedVehicles).toContain('saveiro')
     expect(save.unlockedVehicles).toHaveLength(9)
