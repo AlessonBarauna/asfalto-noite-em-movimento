@@ -1,5 +1,6 @@
 import copy from '../i18n/pt-BR.json'
 import type { ScoreEntry } from '../engine/save'
+import { BRAZILIAN_TRAFFIC_MODELS, type BrazilianTrafficModel } from '../game/traffic-vehicles'
 
 export type RaceUiState = {
   score: number
@@ -19,13 +20,16 @@ export type RaceUiActions = {
   restart(): void
   toTitle(): void
   openLeaderboard(): void
+  selectVehicle(model: BrazilianTrafficModel): void
+  openGarage(): void
 }
 
 export class RaceUI {
-  screen: 'boot' | 'title' | 'hud' | 'pause' | 'results' | 'leaderboard' = 'boot'
+  screen: 'boot' | 'title' | 'hud' | 'pause' | 'results' | 'leaderboard' | 'garage' = 'boot'
   private readonly root: HTMLElement
   private noticeTimer = 0
   private returnAfterBoard: RaceUI['screen'] = 'title'
+  private returnAfterGarage: RaceUI['screen'] = 'title'
   constructor(root: HTMLElement, private readonly actions: RaceUiActions) {
     this.root = root
     this.root.innerHTML = this.template()
@@ -79,6 +83,18 @@ export class RaceUI {
     this.show('title')
   }
 
+  showGarage(selected: BrazilianTrafficModel): void {
+    if (this.screen !== 'garage') this.returnAfterGarage = this.screen === 'pause' ? 'pause' : 'title'
+    const grid = this.root.querySelector<HTMLElement>('.garage-grid')
+    if (grid) {
+      grid.innerHTML = BRAZILIAN_TRAFFIC_MODELS.map(model => {
+        const active = model.id === selected
+        const type = model.utility === 'pickup' ? 'PICAPE' : model.utility === 'van' ? 'UTILITÁRIO' : 'HATCH'
+        return '<button class="garage-car ' + (active ? 'is-selected' : '') + '" data-vehicle="' + model.id + '" aria-pressed="' + active + '"><span class="garage-car-type">' + type + '</span><strong>' + model.label + '</strong><small>' + (active ? 'EM USO' : 'SELECIONAR') + '</small></button>'
+      }).join('')
+    }
+    this.show('garage')
+  }
   showPause(): void {
     this.show('pause')
   }
@@ -118,6 +134,11 @@ export class RaceUI {
   }
 
   private onClick(event: MouseEvent): void {
+    const vehicle = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-vehicle]')
+    if (vehicle?.dataset.vehicle) {
+      this.actions.selectVehicle(vehicle.dataset.vehicle as BrazilianTrafficModel)
+      return
+    }
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')
     if (!button) return
     switch (button.dataset.action) {
@@ -127,6 +148,8 @@ export class RaceUI {
       case 'restart': this.actions.restart(); break
       case 'title': this.actions.toTitle(); break
       case 'leaderboard': this.actions.openLeaderboard(); break
+      case 'garage': this.actions.openGarage(); break
+      case 'garage-back': this.show(this.returnAfterGarage); break
       case 'back': this.show(this.returnAfterBoard); break
     }
   }
@@ -148,7 +171,7 @@ export class RaceUI {
   <div class="title-panel"><div class="eyebrow">${copy['game.kicker']}</div><h1 class="game-wordmark">AS<span>FAL</span>TO</h1>
     <p class="title-copy">Uma noite. Três faixas. Tráfego sem fim. Desvie dos carros, acelere quando abrir espaço e veja até onde a cidade te leva.</p>
     <label class="pilot-input"><span>NOME NO PLACAR</span><input class="driver-name" name="pilot" type="text" maxlength="16" value="PILOTO" autocomplete="nickname" aria-label="Nome do piloto no placar" /></label>
-    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
+    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
   </div>
   <div class="title-best">RECORDE LOCAL <b class="title-best-value">0</b></div>
   <div class="title-foot">${copy['hint.keyboard']}</div>
@@ -161,12 +184,13 @@ export class RaceUI {
   <div class="center-notice"></div>
 </section>
 <section class="screen screen-modal" data-screen="pause"><div class="modal"><div class="eyebrow">ASFALTO · PAUSA</div><h2>${copy['pause.title']}</h2><p>${copy['pause.subtitle']}</p>
-  <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
+  <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="garage">GARAGEM</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
 <section class="screen screen-modal" data-screen="results"><div class="modal"><div class="eyebrow">ASFALTO · RESULTADO</div><h2>${copy['results.title']}</h2><div class="record-badge">${copy['results.best']}</div>
   <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="modal-tag result-note"></div>
   <div class="modal-menu"><button class="game-btn primary" data-action="restart">${copy['results.retry']}</button><button class="game-btn" data-action="leaderboard">${copy['results.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
+<section class="screen screen-modal" data-screen="garage"><div class="modal garage-modal"><div class="eyebrow">ASFALTO · GARAGEM</div><h2>ESCOLHA SEU CARRO</h2><p>Selecione o veículo que vai encarar o trânsito.</p><div class="garage-grid"></div><div class="modal-menu"><button class="game-btn" data-action="garage-back">VOLTAR</button></div></div></section>
 <section class="screen screen-modal" data-screen="leaderboard"><div class="modal"><div class="eyebrow">ASFALTO · RECORDES</div><h2>${copy['leaderboard.title']}</h2><div class="board-source">${copy['leaderboard.local']}</div><ol class="score-list"><li class="score-empty">${copy['leaderboard.empty']}</li></ol>
   <div class="modal-menu"><button class="game-btn" data-action="back">${copy['menu.back']}</button></div>
 </div></section>

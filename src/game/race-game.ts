@@ -7,7 +7,7 @@ import { calculateScore, clampSteering, hasTrafficSpawnGap, laneCenter, trafficD
 import type { TrafficKind } from './race-rules'
 import { RaceWorld } from './race-world'
 import { createGolG5Model } from './gol-g5'
-import { BRAZILIAN_TRAFFIC_MODELS, createBrazilianTrafficVehicle } from './traffic-vehicles'
+import { BRAZILIAN_TRAFFIC_MODELS, createBrazilianTrafficVehicle, type BrazilianTrafficModel } from './traffic-vehicles'
 import { tuning } from './tuning'
 
 export type RaceSnapshot = {
@@ -57,19 +57,24 @@ export class RaceGame {
     private readonly renderer: Renderer,
     private readonly input: Input,
     private readonly audio: Audio,
-    sounds: { crash?: AudioBuffer; engine?: AudioBuffer } = {},
+    sounds: { crash?: AudioBuffer; engine?: AudioBuffer; playerVehicle?: BrazilianTrafficModel } = {},
   ) {
     this.world = new RaceWorld()
     this.crashBuffer = sounds.crash
     this.engineBuffer = sounds.engine
     this.world.scene.add(this.player)
     this.player.add(this.playerVisual)
-    this.playerVisual.add(createGolG5Model(PLAYER_PAINT))
+    this.playerVisual.add(sounds.playerVehicle && sounds.playerVehicle !== 'gol-g5' ? createBrazilianTrafficVehicle(sounds.playerVehicle, PLAYER_PAINT) : createGolG5Model(PLAYER_PAINT))
     this.player.rotation.y = Math.PI // The player car faces +Z; rotate it toward the road's -Z direction.
     this.player.position.set(0, 0.02, RACE_CONFIG.playerZ)
     this.createTrafficPool()
     this.camera.position.set(0, 5.2, RACE_CONFIG.playerZ + 12.6)
     this.camera.lookAt(0, 1.2, -19)
+  }
+
+  setPlayerVehicle(model: BrazilianTrafficModel): void {
+    this.playerVisual.clear()
+    this.playerVisual.add(model === 'gol-g5' ? createGolG5Model(PLAYER_PAINT) : createBrazilianTrafficVehicle(model, PLAYER_PAINT))
   }
 
   start(): void {

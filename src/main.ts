@@ -5,6 +5,7 @@ import { GameLoop } from './engine/loop'
 import { Renderer, suggestQuality } from './engine/renderer'
 import { SAVE_KEY, SaveStore, insertScore } from './engine/save'
 import { RaceGame, type RaceResult } from './game/race-game'
+import type { BrazilianTrafficModel } from './game/traffic-vehicles'
 import { tuning } from './game/tuning'
 import { TouchControls } from './ui/touch'
 import { RaceUI } from './ui/race-ui'
@@ -31,6 +32,8 @@ async function boot(): Promise<void> {
     restart: () => startRun(),
     toTitle: () => { game?.toTitle(); ui.showTitle(bestScore(), save.data.playerName) },
     openLeaderboard: () => { ui.showLeaderboard(save.data.leaderboard) },
+    openGarage: () => { ui.showGarage(save.data.playerVehicle) },
+    selectVehicle: model => { save.update({ playerVehicle: model }); game?.setPlayerVehicle(model); ui.showGarage(model) },
   })
   activeUI = ui
   const applySettings = () => audio.setVolumes(save.data.musicVolume, save.data.sfxVolume, save.data.muted)
@@ -77,7 +80,7 @@ async function boot(): Promise<void> {
 
   ui.setBootProgress(0.76, 'Preparando o trânsito…')
   const renderer = new Renderer(canvas, save.data.quality)
-  game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound })
+  game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound, playerVehicle: save.data.playerVehicle as BrazilianTrafficModel })
   if (import.meta.env.DEV) {
     const [{ registerGameTuning }] = await Promise.all([import('../scripts/manus-tuning/adapter.js')])
     void registerGameTuning(tuning)
