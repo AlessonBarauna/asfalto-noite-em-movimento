@@ -20,7 +20,7 @@ async function boot(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#ui')
   if (!canvas || !root) throw new Error('Canvas ou camada de interface indisponível')
 
-  const firstRun = safeGet(SAVE_KEY) === null && safeGet('asfalto.save.v2') === null && safeGet('asfalto.save.v1') === null
+  const firstRun = safeGet(SAVE_KEY) === null && safeGet('asfalto.save.v4') === null && safeGet('asfalto.save.v3') === null && safeGet('asfalto.save.v2') === null && safeGet('asfalto.save.v1') === null
   const save = new SaveStore()
   if (firstRun) save.update({ quality: suggestQuality() })
   const input = new Input(canvas)
@@ -38,7 +38,7 @@ async function boot(): Promise<void> {
       if (!save.data.unlockedVehicles.includes(model)) return
       save.update({ playerVehicle: model })
       game?.setPlayerVehicle(model, save.data.playerPaint)
-      ui.showGarage(model, save.data.unlockedVehicles, save.data.credits)
+      ui.showGarage(model, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints)
     },
     purchaseVehicle: model => {
       const purchase = buyVehicle(save.data.credits, save.data.unlockedVehicles, model)
