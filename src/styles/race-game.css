@@ -32,3 +32,10 @@
 .payout-panel>small{font-size:9px;letter-spacing:.12em;color:#aebbc0}
 .payout-panel>small b{color:#f5eee4;font-size:12px}
 @media(max-width:700px){.title-wallet{right:calc(18px + var(--safe-r));top:calc(15px + var(--safe-t));padding:7px 9px}.title-wallet b{font-size:15px}.payout-panel{margin:12px auto 5px;padding:10px 12px}.payout-panel>strong{font-size:24px}}
+
+.garage-wallet{margin:14px auto 0;padding:9px 12px;max-width:260px;border:1px solid #ffb36e55;background:#0b121a;color:#aebbc0;text-align:center;font-size:9px;letter-spacing:.13em}
+.garage-wallet strong{color:#ffd19b;font-size:14px}
+.garage-car.is-locked{border-style:dashed;background:linear-gradient(145deg,#121a21,#0a1016)}
+.garage-car.is-locked small{color:#c2a27f}
+.garage-car:disabled{opacity:.48;cursor:not-allowed;transform:none}
+.garage-car:disabled:hover{border-color:var(--line);transform:none}
