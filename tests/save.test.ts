@@ -41,6 +41,11 @@ describe('save', () => {
     new SaveStore(storage).update({ musicVolume: 0.3, locale: 'zh-CN' })
     expect(JSON.parse(mem.get(SAVE_KEY)!).musicVolume).toBe(0.3)
     expect(new SaveStore(storage).data.locale).toBe('zh-CN')
+    const legacy = new Map<string, string>([['asfalto.save.v1', JSON.stringify({ version: 1, playerName: 'LEGADO' })]])
+    const migrated = new SaveStore({ getItem: key => legacy.get(key) ?? null, setItem: (key, value) => void legacy.set(key, value) })
+    expect(migrated.data.playerName).toBe('LEGADO')
+    migrated.update({ quality: 'medium' })
+    expect(JSON.parse(legacy.get(SAVE_KEY)!).version).toBe(2)
     const broken = { getItem: () => { throw new Error('denied') }, setItem: () => { throw new Error('quota') } }
     const store = new SaveStore(broken)
     expect(() => store.update({ muted: true })).not.toThrow()
