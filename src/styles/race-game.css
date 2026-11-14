@@ -42,3 +42,14 @@
 
 .garage-notice{min-height:16px;margin:7px auto 0;text-align:center;color:#ffc184;font-size:9px;font-weight:800;letter-spacing:.14em;opacity:0;transition:opacity .15s}
 .garage-notice.show{opacity:1}
+
+.garage-section-title{margin:18px 0 8px;color:#aebbc0;font-size:10px;letter-spacing:.2em;text-align:left}
+.paint-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 auto 12px;max-width:620px}
+.paint-swatch{display:flex;min-width:0;flex-direction:column;align-items:center;gap:5px;padding:9px 5px;border:1px solid var(--line);background:#0b121a;color:#e8edf0;cursor:pointer}
+.paint-swatch i{display:block;width:28px;height:28px;border-radius:50%;background:var(--paint);border:2px solid #ffffff66;box-shadow:0 2px 8px #0008}
+.paint-swatch strong{font-size:10px}
+.paint-swatch small{font-size:8px;color:#b7c1c6;letter-spacing:.08em}
+.paint-swatch.is-selected{border-color:#ffc184;box-shadow:inset 0 0 0 1px #ffc18455}
+.paint-swatch:disabled{opacity:.42;cursor:not-allowed}
+.garage-modal{max-height:min(88vh,820px);overflow-y:auto}
+@media(max-width:560px){.paint-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.paint-swatch{padding:7px 2px}.paint-swatch i{width:24px;height:24px}.paint-swatch strong{font-size:9px}}
