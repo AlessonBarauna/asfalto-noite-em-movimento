@@ -1,5 +1,6 @@
 import copy from '../i18n/pt-BR.json'
-import type { ScoreEntry } from '../engine/save'
+import type { PlayerVehicleId, ScoreEntry } from '../engine/save'
+import { VEHICLE_PRICES } from '../game/economy'
 import { BRAZILIAN_TRAFFIC_MODELS, type BrazilianTrafficModel } from '../game/traffic-vehicles'
 
 export type RaceUiState = {
@@ -21,6 +22,7 @@ export type RaceUiActions = {
   toTitle(): void
   openLeaderboard(): void
   selectVehicle(model: BrazilianTrafficModel): void
+  purchaseVehicle(model: BrazilianTrafficModel): boolean
   openGarage(): void
 }
 
@@ -84,14 +86,21 @@ export class RaceUI {
     this.show('title')
   }
 
-  showGarage(selected: BrazilianTrafficModel): void {
+  showGarage(selected: BrazilianTrafficModel, unlocked: PlayerVehicleId[] = ['gol-g5'], credits = 0): void {
     if (this.screen !== 'garage') this.returnAfterGarage = this.screen === 'pause' ? 'pause' : 'title'
+    this.set('.garage-balance', credits.toLocaleString('pt-BR'))
     const grid = this.root.querySelector<HTMLElement>('.garage-grid')
     if (grid) {
       grid.innerHTML = BRAZILIAN_TRAFFIC_MODELS.map(model => {
         const active = model.id === selected
+        const owned = unlocked.includes(model.id)
         const type = model.utility === 'pickup' ? 'PICAPE' : model.utility === 'van' ? 'UTILITÁRIO' : 'HATCH'
-        return '<button class="garage-car ' + (active ? 'is-selected' : '') + '" data-vehicle="' + model.id + '" aria-pressed="' + active + '"><span class="garage-car-type">' + type + '</span><strong>' + model.label + '</strong><small>' + (active ? 'EM USO' : 'SELECIONAR') + '</small></button>'
+        const price = VEHICLE_PRICES[model.id as PlayerVehicleId]
+        if (owned) {
+          return '<button class="garage-car ' + (active ? 'is-selected' : '') + '" data-vehicle="' + model.id + '" aria-pressed="' + active + '"><span class="garage-car-type">' + type + '</span><strong>' + model.label + '</strong><small>' + (active ? 'EM USO' : 'SELECIONAR') + '</small></button>'
+        }
+        const affordable = credits >= price
+        return '<button class="garage-car is-locked" data-buy-vehicle="' + model.id + '" ' + (affordable ? '' : 'disabled') + '><span class="garage-car-type">' + type + ' · BLOQUEADO</span><strong>' + model.label + '</strong><small>' + price.toLocaleString('pt-BR') + ' CR · ' + (affordable ? 'COMPRAR' : 'SALDO INSUFICIENTE') + '</small></button>'
       }).join('')
     }
     this.show('garage')
@@ -137,6 +146,11 @@ export class RaceUI {
   }
 
   private onClick(event: MouseEvent): void {
+    const buy = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-buy-vehicle]')
+    if (buy?.dataset.buyVehicle) {
+      this.actions.purchaseVehicle(buy.dataset.buyVehicle as BrazilianTrafficModel)
+      return
+    }
     const vehicle = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-vehicle]')
     if (vehicle?.dataset.vehicle) {
       this.actions.selectVehicle(vehicle.dataset.vehicle as BrazilianTrafficModel)
@@ -193,7 +207,7 @@ export class RaceUI {
   <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="payout-panel"><span>RECOMPENSA DA CORRIDA</span><strong class="result-credits">+0 CR</strong><small>SALDO: <b class="result-balance">0</b> CR</small></div><div class="modal-tag result-note"></div>
   <div class="modal-menu"><button class="game-btn primary" data-action="restart">${copy['results.retry']}</button><button class="game-btn" data-action="leaderboard">${copy['results.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
-<section class="screen screen-modal" data-screen="garage"><div class="modal garage-modal"><div class="eyebrow">ASFALTO · GARAGEM</div><h2>ESCOLHA SEU CARRO</h2><p>Selecione o veículo que vai encarar o trânsito.</p><div class="garage-grid"></div><div class="modal-menu"><button class="game-btn" data-action="garage-back">VOLTAR</button></div></div></section>
+<section class="screen screen-modal" data-screen="garage"><div class="modal garage-modal"><div class="eyebrow">ASFALTO · GARAGEM</div><h2>ESCOLHA SEU CARRO</h2><p>Compre novos veículos com os créditos conquistados nas corridas. O Gol G5 continua sendo seu carro inicial.</p><div class="garage-wallet">SALDO DISPONÍVEL: <strong class="garage-balance"></strong> CR</div><div class="garage-grid"></div><div class="modal-menu"><button class="game-btn" data-action="garage-back">VOLTAR</button></div></div></section>
 <section class="screen screen-modal" data-screen="leaderboard"><div class="modal"><div class="eyebrow">ASFALTO · RECORDES</div><h2>${copy['leaderboard.title']}</h2><div class="board-source">${copy['leaderboard.local']}</div><ol class="score-list"><li class="score-empty">${copy['leaderboard.empty']}</li></ol>
   <div class="modal-menu"><button class="game-btn" data-action="back">${copy['menu.back']}</button></div>
 </div></section>
