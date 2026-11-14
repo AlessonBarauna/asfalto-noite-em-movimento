@@ -3,7 +3,8 @@ import type { Audio } from '../engine/audio'
 import type { Input } from '../engine/input'
 import type { Renderer } from '../engine/renderer'
 import { RACE_CONFIG } from './race-config'
-import { calculateScore, clampSteering, laneCenter, trafficDifficulty, trafficWaveSize } from './race-rules'
+import { calculateScore, clampSteering, hasTrafficSpawnGap, laneCenter, trafficDifficulty, trafficSpeedFactor, trafficWaveSize } from './race-rules'
+import type { TrafficKind } from './race-rules'
 import { RaceWorld } from './race-world'
 import { tuning } from './tuning'
 
@@ -19,8 +20,7 @@ export type RaceSnapshot = {
 }
 
 export type RaceResult = { score: number; distance: number; nearMisses: number; seconds: number; unranked: boolean }
-type TrafficKind = 'sedan' | 'suv' | 'van' | 'pickup'
-type TrafficCar = { root: THREE.Group; lane: number; active: boolean; tagged: boolean; speedFactor: number; width: number; length: number }
+type TrafficCar = { root: THREE.Group; kind: TrafficKind; lane: number; active: boolean; tagged: boolean; speedFactor: number; width: number; length: number }
 
 const PLAYER_PAINT = new THREE.Color('#4a5052')
 const TRAFFIC_PAINTS = ['#cbd0cc', '#395571', '#a3482d', '#666a70', '#aa9d7b', '#263f42', '#ddd5c7'].map(color => new THREE.Color(color))
@@ -210,7 +210,7 @@ export class RaceGame {
       root.visible = false
       this.world.scene.add(root)
       const dimensions = trafficDimensions(kind)
-      this.traffic.push({ root, lane: 1, active: false, tagged: false, speedFactor: 1, width: dimensions.width, length: dimensions.length })
+      this.traffic.push({ root, kind, lane: 1, active: false, tagged: false, speedFactor: 1, width: dimensions.width, length: dimensions.length })
     }
   }
 
@@ -354,9 +354,12 @@ export class RaceGame {
       const swapIndex = Math.floor(this.random() * (index + 1))
       ;[candidates[index], candidates[swapIndex]] = [candidates[swapIndex], candidates[index]]
     }
-    const clearLanes = candidates.filter(lane => !this.traffic.some(car =>
-      car.active && car.lane === lane && Math.abs(car.root.position.z - spawnZ) < 22,
-    ))
+    const clearLanes = candidates.filter(lane => {
+      const positions = this.traffic
+        .filter(car => car.active && car.lane === lane)
+        .map(car => car.root.position.z)
+      return hasTrafficSpawnGap(positions, spawnZ, 26)
+    })
     // Never add a pair if another vehicle already occupies the would-be escape lane.
     const safeWaveSize = wanted === 2 && clearLanes.length === 3 ? 2 : 1
     const lanes = clearLanes.slice(0, safeWaveSize)
@@ -367,7 +370,7 @@ export class RaceGame {
       if (!car) return
       car.lane = lane
       car.tagged = false
-      car.speedFactor = difficulty.speedFactor * (0.92 + this.random() * 0.2)
+      car.speedFactor = trafficSpeedFactor(difficulty.speedFactor, car.kind, this.random())
       // A paired wave arrives abreast: the third lane is always open for a clean dodge.
       car.root.position.set(laneCenter(lane), 0.02, spawnZ + (index ? -1.2 : 0))
       car.root.visible = true
