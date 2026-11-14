@@ -85,6 +85,18 @@ export const SUSPENSION_OPTIONS = [
   { id: 'slammed', label: 'Baixa esportiva', price: 900 },
 ] as const
 
+export const EXHAUST_OPTIONS = [
+  { id: 'stock', label: 'Original', price: 0 },
+  { id: 'sport', label: 'Ponteira esportiva', price: 420 },
+  { id: 'dual', label: 'Ponteira dupla', price: 680 },
+] as const
+
+export const HEADLIGHT_OPTIONS = [
+  { id: 'halogen', label: 'Halógena original', price: 0 },
+  { id: 'xenon', label: 'Xenon branco', price: 450 },
+  { id: 'led', label: 'LED com assinatura', price: 750 },
+] as const
+
 export type AccessoryPurchase = { success: boolean; reason: 'already-owned' | 'insufficient-credits' | 'purchased'; balance: number; unlocked: string[] }
 function purchaseAccessory(balance: number, unlockedItems: string[], id: string, options: readonly {id:string;price:number}[], starter: string): AccessoryPurchase {
   const owned = new Set(unlockedItems); owned.add(starter)
@@ -100,6 +112,8 @@ export const purchaseWheels = (balance: number, unlocked: string[], id: string) 
 export const purchaseTint = (balance: number, unlocked: string[], id: string) => purchaseAccessory(balance, unlocked, id, TINT_OPTIONS, 'smoke')
 export const purchaseSpoiler = (balance: number, unlocked: string[], id: string) => purchaseAccessory(balance, unlocked, id, SPOILER_OPTIONS, 'none')
 export const purchaseSuspension = (balance: number, unlocked: string[], id: string) => purchaseAccessory(balance, unlocked, id, SUSPENSION_OPTIONS, 'stock')
+export const purchaseExhaust = (balance: number, unlocked: string[], id: string) => purchaseAccessory(balance, unlocked, id, EXHAUST_OPTIONS, 'stock')
+export const purchaseHeadlights = (balance: number, unlocked: string[], id: string) => purchaseAccessory(balance, unlocked, id, HEADLIGHT_OPTIONS, 'halogen')
 
 export type PaintPurchase = { success: boolean; reason: 'already-owned' | 'insufficient-credits' | 'purchased'; balance: number; unlockedPaints: string[] }
 

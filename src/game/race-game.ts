@@ -58,7 +58,7 @@ export class RaceGame {
     private readonly renderer: Renderer,
     private readonly input: Input,
     private readonly audio: Audio,
-    sounds: { crash?: AudioBuffer; engine?: AudioBuffer; playerVehicle?: BrazilianTrafficModel; playerPaint?: string; playerWheels?: string; playerTint?: string; playerSpoiler?: string; playerSuspension?: string } = {},
+    sounds: { crash?: AudioBuffer; engine?: AudioBuffer; playerVehicle?: BrazilianTrafficModel; playerPaint?: string; playerWheels?: string; playerTint?: string; playerSpoiler?: string; playerSuspension?: string; playerExhaust?: string; playerHeadlights?: string } = {},
   ) {
     this.world = new RaceWorld()
     this.crashBuffer = sounds.crash
@@ -66,7 +66,7 @@ export class RaceGame {
     this.world.scene.add(this.player)
     this.player.add(this.playerVisual)
     const initialCar = sounds.playerVehicle && sounds.playerVehicle !== 'gol-g5' ? createBrazilianTrafficVehicle(sounds.playerVehicle, sounds.playerPaint ?? PLAYER_PAINT) : createGolG5Model(sounds.playerPaint ?? PLAYER_PAINT)
-    applyGarageVisuals(initialCar, sounds.playerWheels ?? 'alloy', sounds.playerTint ?? 'smoke', sounds.playerSpoiler ?? 'none', sounds.playerSuspension ?? 'stock')
+    applyGarageVisuals(initialCar, sounds.playerWheels ?? 'alloy', sounds.playerTint ?? 'smoke', sounds.playerSpoiler ?? 'none', sounds.playerSuspension ?? 'stock', sounds.playerExhaust ?? 'stock', sounds.playerHeadlights ?? 'halogen')
     this.playerVisual.add(initialCar)
     this.player.rotation.y = Math.PI // The player car faces +Z; rotate it toward the road's -Z direction.
     this.player.position.set(0, 0.02, RACE_CONFIG.playerZ)
@@ -75,10 +75,10 @@ export class RaceGame {
     this.camera.lookAt(0, 1.2, -19)
   }
 
-  setPlayerVehicle(model: BrazilianTrafficModel, paint = '#4a5052', wheels = 'alloy', tint = 'smoke', spoiler = 'none', suspension = 'stock'): void {
+  setPlayerVehicle(model: BrazilianTrafficModel, paint = '#4a5052', wheels = 'alloy', tint = 'smoke', spoiler = 'none', suspension = 'stock', exhaust = 'stock', headlights = 'halogen'): void {
     this.playerVisual.clear()
     const car = model === 'gol-g5' ? createGolG5Model(paint) : createBrazilianTrafficVehicle(model, paint)
-    applyGarageVisuals(car, wheels, tint, spoiler, suspension)
+    applyGarageVisuals(car, wheels, tint, spoiler, suspension, exhaust, headlights)
     this.playerVisual.add(car)
   }
 

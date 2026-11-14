@@ -59,3 +59,5 @@
 
 /* Exterior body upgrades */
 .accessory-symbol{display:flex;align-items:center;justify-content:center;width:30px;height:27px;color:#d6a36a;font-size:23px;font-style:normal;font-weight:900}.accessory-option .accessory-symbol{background:#202a31;border:1px solid #46515a;border-radius:5px}
+
+/* Exhaust and headlight options reuse the shared accessory-card layout. */
