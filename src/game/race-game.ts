@@ -9,6 +9,7 @@ import { RaceWorld } from './race-world'
 import { createGolG5Model } from './gol-g5'
 import { BRAZILIAN_TRAFFIC_MODELS, createBrazilianTrafficVehicle, type BrazilianTrafficModel } from './traffic-vehicles'
 import { tuning } from './tuning'
+import { applyGarageVisuals } from './garage-visuals'
 
 export type RaceSnapshot = {
   score: number
@@ -25,24 +26,6 @@ export type RaceResult = { score: number; distance: number; nearMisses: number; 
 type TrafficCar = { root: THREE.Group; kind: TrafficKind; lane: number; active: boolean; tagged: boolean; speedFactor: number; width: number; length: number }
 
 const PLAYER_PAINT = new THREE.Color('#4a5052')
-function applyGarageAccessories(car: THREE.Group, wheelStyle: string, tintStyle: string): void {
-  const wheelColors: Record<string, string> = { alloy: '#aeb7bb', black: '#171c20', sport: '#b9874b' }
-  const tintColors: Record<string, string> = { light: '#607985', smoke: '#172a36', dark: '#080d12' }
-  car.traverse(node => {
-    if (!(node instanceof THREE.Mesh)) return
-    if (node.name.includes('alloy-rim') || node.name.includes('alloy-wheel')) {
-      const material = (Array.isArray(node.material) ? node.material[0] : node.material).clone()
-      if ('color' in material) (material as THREE.MeshStandardMaterial).color.set(wheelColors[wheelStyle] ?? wheelColors.alloy)
-      node.material = material
-    }
-    if (/(glass|window|windshield)/i.test(node.name)) {
-      const material = (Array.isArray(node.material) ? node.material[0] : node.material).clone()
-      if ('color' in material) (material as THREE.MeshPhysicalMaterial).color.set(tintColors[tintStyle] ?? tintColors.smoke)
-      node.material = material
-    }
-  })
-}
-
 const TRAFFIC_PAINTS = ['#cbd0cc', '#395571', '#a3482d', '#666a70', '#aa9d7b', '#263f42', '#ddd5c7'].map(color => new THREE.Color(color))
 
 /** Single-player traffic dodger: forward motion is expressed by scrolling the road and oncoming traffic. */
@@ -75,7 +58,7 @@ export class RaceGame {
     private readonly renderer: Renderer,
     private readonly input: Input,
     private readonly audio: Audio,
-    sounds: { crash?: AudioBuffer; engine?: AudioBuffer; playerVehicle?: BrazilianTrafficModel; playerPaint?: string; playerWheels?: string; playerTint?: string } = {},
+    sounds: { crash?: AudioBuffer; engine?: AudioBuffer; playerVehicle?: BrazilianTrafficModel; playerPaint?: string; playerWheels?: string; playerTint?: string; playerSpoiler?: string; playerSuspension?: string } = {},
   ) {
     this.world = new RaceWorld()
     this.crashBuffer = sounds.crash
@@ -83,7 +66,7 @@ export class RaceGame {
     this.world.scene.add(this.player)
     this.player.add(this.playerVisual)
     const initialCar = sounds.playerVehicle && sounds.playerVehicle !== 'gol-g5' ? createBrazilianTrafficVehicle(sounds.playerVehicle, sounds.playerPaint ?? PLAYER_PAINT) : createGolG5Model(sounds.playerPaint ?? PLAYER_PAINT)
-    applyGarageAccessories(initialCar, sounds.playerWheels ?? 'alloy', sounds.playerTint ?? 'smoke')
+    applyGarageVisuals(initialCar, sounds.playerWheels ?? 'alloy', sounds.playerTint ?? 'smoke', sounds.playerSpoiler ?? 'none', sounds.playerSuspension ?? 'stock')
     this.playerVisual.add(initialCar)
     this.player.rotation.y = Math.PI // The player car faces +Z; rotate it toward the road's -Z direction.
     this.player.position.set(0, 0.02, RACE_CONFIG.playerZ)
@@ -92,10 +75,10 @@ export class RaceGame {
     this.camera.lookAt(0, 1.2, -19)
   }
 
-  setPlayerVehicle(model: BrazilianTrafficModel, paint = '#4a5052', wheels = 'alloy', tint = 'smoke'): void {
+  setPlayerVehicle(model: BrazilianTrafficModel, paint = '#4a5052', wheels = 'alloy', tint = 'smoke', spoiler = 'none', suspension = 'stock'): void {
     this.playerVisual.clear()
     const car = model === 'gol-g5' ? createGolG5Model(paint) : createBrazilianTrafficVehicle(model, paint)
-    applyGarageAccessories(car, wheels, tint)
+    applyGarageVisuals(car, wheels, tint, spoiler, suspension)
     this.playerVisual.add(car)
   }
 
