@@ -76,6 +76,8 @@ describe('wheel and tint save migration', () => {
     expect(save.version).toBe(6)
     expect(save.playerVehicle).toBe('uno')
     expect(save.playerPaint).toBe('#d71920')
+    expect(save.unlockedPaints).toContain('#d71920')
+    expect(save.unlockedVehicles).toEqual(['gol-g5', 'uno'])
     expect(save.credits).toBe(740)
     expect(save.playerWheels).toBe('alloy')
     expect(save.playerTint).toBe('smoke')
