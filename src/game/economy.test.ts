@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateRacePayout, purchaseVehicle, VEHICLE_PRICES } from './economy'
+import { calculateRacePayout, purchaseVehicle, VEHICLE_PRICES, purchasePaint, PAINT_OPTIONS } from './economy'
 
 describe('race economy', () => {
   it('rewards distance in complete 100 m blocks', () => {
@@ -46,5 +46,25 @@ describe('vehicle unlock economy', () => {
   it('keeps the starter car free and all other prices positive', () => {
     expect(VEHICLE_PRICES['gol-g5']).toBe(0)
     expect(Object.entries(VEHICLE_PRICES).filter(([id]) => id !== 'gol-g5').every(([, price]) => price > 0)).toBe(true)
+  })
+})
+
+
+describe('paint customization economy', () => {
+  it('purchases a paint and deducts its price', () => {
+    const red = PAINT_OPTIONS.find(item => item.id === '#d71920')!
+    const result = purchasePaint(200, ['#4a5052'], red.id)
+    expect(result.success).toBe(true)
+    expect(result.balance).toBe(20)
+    expect(result.unlockedPaints).toContain(red.id)
+  })
+  it('does not charge twice or allow an unaffordable paint', () => {
+    expect(purchasePaint(500, ['#4a5052', '#d71920'], '#d71920').reason).toBe('already-owned')
+    const result = purchasePaint(100, ['#4a5052'], '#d71920')
+    expect(result.reason).toBe('insufficient-credits')
+    expect(result.balance).toBe(100)
+  })
+  it('keeps the starter paint free', () => {
+    expect(PAINT_OPTIONS[0].price).toBe(0)
   })
 })
