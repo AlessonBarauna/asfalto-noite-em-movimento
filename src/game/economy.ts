@@ -1,4 +1,6 @@
 /** Economy rules are pure so payouts can be tested independently from rendering. */
+import type { PlayerVehicleId } from '../engine/save'
+
 export type RacePayout = { credits: number; distanceCredits: number; nearMissCredits: number }
 
 /** Five credits per 100 m, plus 15 for each clean near miss. */
@@ -7,9 +9,6 @@ export function calculateRacePayout(distanceMeters: number, nearMisses: number):
   const nearMissCredits = Math.max(0, Math.floor(Number.isFinite(nearMisses) ? nearMisses : 0)) * 15
   return { credits: distanceCredits + nearMissCredits, distanceCredits, nearMissCredits }
 }
-
-
-import type { PlayerVehicleId } from '../engine/save'
 
 /** Credit prices for the vehicles that can be unlocked in the garage. */
 export const VEHICLE_PRICES: Record<PlayerVehicleId, number> = {
