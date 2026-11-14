@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { createGolG5Model, GOL_G5_DIMENSIONS } from './gol-g5'
 
@@ -31,7 +32,7 @@ describe('Gol G5 player model', () => {
   it('accepts a custom body paint color', () => {
     const car = createGolG5Model('#d71920')
     const shell = car.getObjectByName('gol-g5-body-shell') as import('three').Mesh
-    expect(shell.material).toBeInstanceOf((await import('three')).MeshPhysicalMaterial)
-    expect((shell.material as import('three').MeshPhysicalMaterial).color.getHexString()).toBe('d71920')
+    expect(shell.material).toBeInstanceOf(THREE.MeshPhysicalMaterial)
+    expect((shell.material as THREE.MeshPhysicalMaterial).color.getHexString()).toBe('d71920')
   })
 })
