@@ -13,7 +13,7 @@ export function applyGarageVisuals(car: THREE.Group, wheelStyle: string, tintSty
   const bladeMat=new THREE.MeshStandardMaterial({color:'#151a1f',metalness:0.45,roughness:0.32}), supportMat=new THREE.MeshStandardMaterial({color:'#242a30',metalness:0.35,roughness:0.4})
   let width=1.28, roofY=1.66, rearZ=-1.42
   if(car.name!=='gol-g5-player-car'){const spec=BRAZILIAN_TRAFFIC_MODELS.find(item=>item.id===car.name.replace(/^traffic-/,''))
-   if(spec){width=spec.width*(spec.utility==='van'?0.72:0.84);roofY=spec.roofHeight+0.045;rearZ=spec.utility==='pickup'?0.45-spec.cabinLength*0.34:-spec.length*0.39}}
+   if(spec){width=spec.width*(spec.utility==='van'?0.72:0.84);roofY=spec.roofHeight+0.045;rearZ=spec.utility==='pickup'?0.45-spec.cabinLength*0.34:spec.utility==='van'?-spec.length*0.42:-0.06-spec.cabinLength*0.34}}
   for(const side of [-1,1]){const post=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.16,0.075),supportMat);post.name=`spoiler-support-${side}`;post.position.set(side*width*0.31,roofY-0.08,rearZ);spoiler.add(post)}
   const blade=new THREE.Mesh(new THREE.BoxGeometry(width,0.075,0.25),bladeMat);blade.name='spoiler-wing';blade.position.set(0,roofY+0.015,rearZ-0.015);blade.castShadow=true;spoiler.add(blade);spoiler.position.y-=drop;car.add(spoiler)
  }
