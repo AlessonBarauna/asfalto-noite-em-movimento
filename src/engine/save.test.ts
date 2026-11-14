@@ -68,3 +68,21 @@ describe('paint save migration', () => {
     expect(save.unlockedPaints).toContain('#d71920')
   })
 })
+
+
+describe('wheel and tint save migration', () => {
+  it('migrates version 5 without losing paint, vehicle or credits', () => {
+    const save = parseSave(JSON.stringify({ version: 5, playerVehicle: 'uno', unlockedVehicles: ['gol-g5', 'uno'], playerPaint: '#d71920', unlockedPaints: ['#4a5052', '#d71920'], credits: 740 }))
+    expect(save.version).toBe(6)
+    expect(save.playerVehicle).toBe('uno')
+    expect(save.playerPaint).toBe('#d71920')
+    expect(save.credits).toBe(740)
+    expect(save.playerWheels).toBe('alloy')
+    expect(save.playerTint).toBe('smoke')
+  })
+  it('only restores owned wheel and tint upgrades', () => {
+    const save = parseSave(JSON.stringify({ version: 6, playerWheels: 'sport', unlockedWheels: ['alloy', 'sport'], playerTint: 'dark', unlockedTints: ['smoke', 'dark'] }))
+    expect(save.playerWheels).toBe('sport')
+    expect(save.playerTint).toBe('dark')
+  })
+})
