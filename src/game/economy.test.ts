@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateRacePayout } from './economy'
+import { calculateRacePayout, purchaseVehicle, VEHICLE_PRICES } from './economy'
 
 describe('race economy', () => {
   it('rewards distance in complete 100 m blocks', () => {
@@ -13,5 +13,38 @@ describe('race economy', () => {
   it('never pays for negative or invalid values', () => {
     expect(calculateRacePayout(-500, -2)).toEqual({ credits: 0, distanceCredits: 0, nearMissCredits: 0 })
     expect(calculateRacePayout(Number.NaN, Number.POSITIVE_INFINITY).credits).toBe(0)
+  })
+})
+
+
+describe('vehicle unlock economy', () => {
+  it('charges the configured price and unlocks the selected vehicle', () => {
+    const result = purchaseVehicle(600, ['gol-g5'], 'palio')
+    expect(result).toEqual({
+      success: true,
+      reason: 'purchased',
+      balance: 50,
+      unlockedVehicles: ['gol-g5', 'palio'],
+    })
+  })
+
+  it('does not charge when the player cannot afford a vehicle', () => {
+    const result = purchaseVehicle(399, ['gol-g5'], 'uno')
+    expect(result.success).toBe(false)
+    expect(result.reason).toBe('insufficient-credits')
+    expect(result.balance).toBe(399)
+    expect(result.unlockedVehicles).toEqual(['gol-g5'])
+  })
+
+  it('does not charge twice for an already owned vehicle', () => {
+    const result = purchaseVehicle(1000, ['gol-g5', 'uno'], 'uno')
+    expect(result.success).toBe(false)
+    expect(result.reason).toBe('already-owned')
+    expect(result.balance).toBe(1000)
+  })
+
+  it('keeps the starter car free and all other prices positive', () => {
+    expect(VEHICLE_PRICES['gol-g5']).toBe(0)
+    expect(Object.entries(VEHICLE_PRICES).filter(([id]) => id !== 'gol-g5').every(([, price]) => price > 0)).toBe(true)
   })
 })
