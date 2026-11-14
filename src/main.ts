@@ -1,5 +1,4 @@
 import './styles/race-game.css'
-import { Assets } from './engine/assets'
 import { Audio } from './engine/audio'
 import { Input } from './engine/input'
 import { GameLoop } from './engine/loop'
@@ -10,7 +9,6 @@ import { tuning } from './game/tuning'
 import { TouchControls } from './ui/touch'
 import { RaceUI } from './ui/race-ui'
 
-const CAR_MODEL_URL = '/manus-storage/game/sha256/1f4b539bc0028e1ca3692d632d1bd33e2a3f388134cee12bcc62cc0ff24fc33a.glb'
 const CRASH_SOUND_URL = '/manus-storage/game/sha256/fff994e3eeaa9569d79a9f66884042305335a37ebcae45c8e9f4548b08a7d5e9.wav'
 const ENGINE_SOUND_URL = '/manus-storage/game/sha256/037adf851d82c7e13e843b38fe0b95ba0a8b64d7f61cff3ce3e81dbb6dc866a2.ogg'
 let activeUI: RaceUI | undefined
@@ -69,24 +67,17 @@ async function boot(): Promise<void> {
   }
 
   ui.setBootProgress(0.08, 'Montando o carro e carregando a cidade…')
-  const assets = new Assets()
-  const stopProgress = assets.onProgress(progress => ui.setBootProgress(0.08 + progress * 0.62))
-  const [car, crash, engine] = await Promise.all([
-    assets.gltf(CAR_MODEL_URL).then(gltf => gltf.scene).catch(error => {
-      console.error('Carro 3D registrado, mas ainda não foi possível carregá-lo:', error)
-      return undefined
-    }),
+  const [crash, engine] = await Promise.all([
     loadSound(audio, CRASH_SOUND_URL),
     loadSound(audio, ENGINE_SOUND_URL),
     document.fonts.ready,
-  ]).then(([model, crashBuffer, engineBuffer]) => [model, crashBuffer, engineBuffer] as const)
-  stopProgress()
+  ]).then(([crashBuffer, engineBuffer]) => [crashBuffer, engineBuffer] as const)
   crashSound = crash ?? undefined
   engineSound = engine ?? undefined
 
   ui.setBootProgress(0.76, 'Preparando o trânsito…')
   const renderer = new Renderer(canvas, save.data.quality)
-  game = new RaceGame(renderer, input, audio, car, { crash: crashSound, engine: engineSound })
+  game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound })
   if (import.meta.env.DEV) {
     const [{ registerGameTuning }] = await Promise.all([import('../scripts/manus-tuning/adapter.js')])
     void registerGameTuning(tuning)
