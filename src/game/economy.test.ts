@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateRacePayout, purchaseVehicle, VEHICLE_PRICES, purchasePaint, PAINT_OPTIONS } from './economy'
+import { calculateRacePayout, purchaseVehicle, VEHICLE_PRICES, purchasePaint, PAINT_OPTIONS, purchaseWheels, purchaseTint } from './economy'
 
 describe('race economy', () => {
   it('rewards distance in complete 100 m blocks', () => {
@@ -66,5 +66,17 @@ describe('paint customization economy', () => {
   })
   it('keeps the starter paint free', () => {
     expect(PAINT_OPTIONS[0].price).toBe(0)
+  })
+})
+
+
+describe('wheel and tint accessory economy', () => {
+  it('unlocks wheels and tint with credits', () => {
+    expect(purchaseWheels(300, ['alloy'], 'black')).toMatchObject({ success: true, balance: 40 })
+    expect(purchaseTint(200, ['smoke'], 'light')).toMatchObject({ success: true, balance: 20 })
+  })
+  it('prevents duplicate and unaffordable accessory purchases', () => {
+    expect(purchaseWheels(1000, ['alloy', 'black'], 'black').reason).toBe('already-owned')
+    expect(purchaseTint(10, ['smoke'], 'dark').reason).toBe('insufficient-credits')
   })
 })

@@ -62,6 +62,32 @@ export const PAINT_OPTIONS = [
   { id: '#8b3fa5', label: 'Roxo', price: 320 },
 ] as const
 
+export const WHEEL_OPTIONS = [
+  { id: 'alloy', label: 'Liga original', price: 0, color: '#aeb7bb' },
+  { id: 'black', label: 'Preto fosco', price: 260, color: '#171c20' },
+  { id: 'sport', label: 'Sport bronze', price: 420, color: '#b9874b' },
+] as const
+
+export const TINT_OPTIONS = [
+  { id: 'smoke', label: 'Fumê', price: 0, color: '#172a36' },
+  { id: 'light', label: 'Insulfilm claro', price: 180, color: '#607985' },
+  { id: 'dark', label: 'Insulfilm G5', price: 350, color: '#080d12' },
+] as const
+
+export type AccessoryPurchase = { success: boolean; reason: 'already-owned' | 'insufficient-credits' | 'purchased'; balance: number; unlocked: string[] }
+function purchaseAccessory(balance: number, unlockedItems: string[], id: string, options: readonly {id:string;price:number}[], starter: string): AccessoryPurchase {
+  const owned = new Set(unlockedItems); owned.add(starter)
+  const currentBalance = Math.max(0, Number.isFinite(balance) ? Math.floor(balance) : 0)
+  const option = options.find(item => item.id === id)
+  if (!option) return { success: false, reason: 'insufficient-credits', balance: currentBalance, unlocked: [...owned] }
+  if (owned.has(id)) return { success: false, reason: 'already-owned', balance: currentBalance, unlocked: [...owned] }
+  if (currentBalance < option.price) return { success: false, reason: 'insufficient-credits', balance: currentBalance, unlocked: [...owned] }
+  owned.add(id)
+  return { success: true, reason: 'purchased', balance: currentBalance - option.price, unlocked: [...owned] }
+}
+export const purchaseWheels = (balance: number, unlocked: string[], id: string) => purchaseAccessory(balance, unlocked, id, WHEEL_OPTIONS, 'alloy')
+export const purchaseTint = (balance: number, unlocked: string[], id: string) => purchaseAccessory(balance, unlocked, id, TINT_OPTIONS, 'smoke')
+
 export type PaintPurchase = { success: boolean; reason: 'already-owned' | 'insufficient-credits' | 'purchased'; balance: number; unlockedPaints: string[] }
 
 export function purchasePaint(balance: number, unlockedPaints: string[], paint: string): PaintPurchase {
