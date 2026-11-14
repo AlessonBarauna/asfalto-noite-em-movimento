@@ -10,7 +10,7 @@ export type PlayerVehicleId = 'gol-g5' | 'uno' | 'palio' | 'celta' | 'corsa' | '
 export type ScoreEntry = { name: string; score: number; seconds: number; at: number }
 
 export type SaveData = {
-  version: 7
+  version: 8
   /** '' = never chosen; the game follows the browser language until the player picks one. */
   locale: Locale | ''
   musicVolume: number
@@ -33,6 +33,10 @@ export type SaveData = {
   unlockedSpoilers: string[]
   playerSuspension: string
   unlockedSuspensions: string[]
+  playerExhaust: string
+  unlockedExhausts: string[]
+  playerHeadlights: string
+  unlockedHeadlights: string[]
   unlockedVehicles: PlayerVehicleId[]
   credits: number
   lifetimeCredits: number
@@ -40,14 +44,14 @@ export type SaveData = {
   leaderboard: ScoreEntry[]
 }
 
-export const SAVE_KEY = 'asfalto.save.v7'
-const LEGACY_SAVE_KEYS = ['asfalto.save.v6', 'asfalto.save.v5', 'asfalto.save.v4', 'asfalto.save.v3', 'asfalto.save.v2', 'asfalto.save.v1']
+export const SAVE_KEY = 'asfalto.save.v8'
+const LEGACY_SAVE_KEYS = ['asfalto.save.v7', 'asfalto.save.v6', 'asfalto.save.v5', 'asfalto.save.v4', 'asfalto.save.v3', 'asfalto.save.v2', 'asfalto.save.v1']
 const VEHICLES: PlayerVehicleId[] = ['gol-g5', 'uno', 'palio', 'celta', 'corsa', 'onix', 'hb20', 'saveiro', 'fiorino']
 export const LEADERBOARD_SIZE = 10
 
 export function defaultSave(): SaveData {
   return {
-    version: 7,
+    version: 8,
     locale: '',
     musicVolume: 0.7,
     sfxVolume: 0.8,
@@ -69,6 +73,10 @@ export function defaultSave(): SaveData {
     unlockedSpoilers: ['none'],
     playerSuspension: 'stock',
     unlockedSuspensions: ['stock'],
+    playerExhaust: 'stock',
+    unlockedExhausts: ['stock'],
+    playerHeadlights: 'halogen',
+    unlockedHeadlights: ['halogen'],
     unlockedVehicles: ['gol-g5'],
     credits: 0,
     lifetimeCredits: 0,
@@ -91,7 +99,7 @@ export function parseSave(raw: string | null): SaveData {
   } catch {
     return base
   }
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== 7) return base
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== 7 && data.version !== 8) return base
   const unlockedVehicles: PlayerVehicleId[] = data.version === 3
     ? [...VEHICLES] // Version 3 exposed the whole garage for free; preserve every vehicle already available.
     : typeof data.version === 'number' && data.version >= 4 && Array.isArray(data.unlockedVehicles)
@@ -118,13 +126,21 @@ export function parseSave(raw: string | null): SaveData {
   const unlockedSuspensions = typeof data.version === 'number' && data.version >= 7 && Array.isArray(data.unlockedSuspensions) ? [...new Set(data.unlockedSuspensions.filter((id): id is string => typeof id === 'string' && suspensionIds.includes(id)))] : ['stock']
   if (!unlockedSuspensions.includes('stock')) unlockedSuspensions.unshift('stock')
   const playerSuspension = typeof data.playerSuspension === 'string' && unlockedSuspensions.includes(data.playerSuspension) ? data.playerSuspension : 'stock'
+  const exhaustIds = ['stock', 'sport', 'dual']
+  const unlockedExhausts = typeof data.version === 'number' && data.version >= 8 && Array.isArray(data.unlockedExhausts) ? [...new Set(data.unlockedExhausts.filter((id): id is string => typeof id === 'string' && exhaustIds.includes(id)))] : ['stock']
+  if (!unlockedExhausts.includes('stock')) unlockedExhausts.unshift('stock')
+  const playerExhaust = typeof data.playerExhaust === 'string' && unlockedExhausts.includes(data.playerExhaust) ? data.playerExhaust : 'stock'
+  const headlightIds = ['halogen', 'xenon', 'led']
+  const unlockedHeadlights = typeof data.version === 'number' && data.version >= 8 && Array.isArray(data.unlockedHeadlights) ? [...new Set(data.unlockedHeadlights.filter((id): id is string => typeof id === 'string' && headlightIds.includes(id)))] : ['halogen']
+  if (!unlockedHeadlights.includes('halogen')) unlockedHeadlights.unshift('halogen')
+  const playerHeadlights = typeof data.playerHeadlights === 'string' && unlockedHeadlights.includes(data.playerHeadlights) ? data.playerHeadlights : 'halogen'
   const requestedPaint = typeof data.playerPaint === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.playerPaint) ? data.playerPaint.toLowerCase() : base.playerPaint
   const playerPaint = unlockedPaints.includes(requestedPaint) ? requestedPaint : '#4a5052'
   const requestedVehicle = VEHICLES.includes(data.playerVehicle as PlayerVehicleId) ? data.playerVehicle as PlayerVehicleId : base.playerVehicle
   const playerVehicle = unlockedVehicles.includes(requestedVehicle) ? requestedVehicle : 'gol-g5'
   const board = Array.isArray(data.leaderboard) ? data.leaderboard : []
   return {
-    version: 7,
+    version: 8,
     locale: data.locale === 'en' || data.locale === 'zh-CN' ? data.locale : '',
     musicVolume: clamp01(data.musicVolume, base.musicVolume),
     sfxVolume: clamp01(data.sfxVolume, base.sfxVolume),
@@ -146,6 +162,10 @@ export function parseSave(raw: string | null): SaveData {
     unlockedSpoilers,
     playerSuspension,
     unlockedSuspensions,
+    playerExhaust,
+    unlockedExhausts,
+    playerHeadlights,
+    unlockedHeadlights,
     unlockedVehicles,
     credits: Number.isFinite(data.credits) ? Math.max(0, Math.floor(data.credits as number)) : base.credits,
     lifetimeCredits: Number.isFinite(data.lifetimeCredits) ? Math.max(0, Math.floor(data.lifetimeCredits as number)) : base.lifetimeCredits,
