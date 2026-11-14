@@ -10,7 +10,7 @@ export type PlayerVehicleId = 'gol-g5' | 'uno' | 'palio' | 'celta' | 'corsa' | '
 export type ScoreEntry = { name: string; score: number; seconds: number; at: number }
 
 export type SaveData = {
-  version: 6
+  version: 7
   /** '' = never chosen; the game follows the browser language until the player picks one. */
   locale: Locale | ''
   musicVolume: number
@@ -29,6 +29,10 @@ export type SaveData = {
   unlockedWheels: string[]
   playerTint: string
   unlockedTints: string[]
+  playerSpoiler: string
+  unlockedSpoilers: string[]
+  playerSuspension: string
+  unlockedSuspensions: string[]
   unlockedVehicles: PlayerVehicleId[]
   credits: number
   lifetimeCredits: number
@@ -36,14 +40,14 @@ export type SaveData = {
   leaderboard: ScoreEntry[]
 }
 
-export const SAVE_KEY = 'asfalto.save.v6'
-const LEGACY_SAVE_KEYS = ['asfalto.save.v5', 'asfalto.save.v4', 'asfalto.save.v3', 'asfalto.save.v2', 'asfalto.save.v1']
+export const SAVE_KEY = 'asfalto.save.v7'
+const LEGACY_SAVE_KEYS = ['asfalto.save.v6', 'asfalto.save.v5', 'asfalto.save.v4', 'asfalto.save.v3', 'asfalto.save.v2', 'asfalto.save.v1']
 const VEHICLES: PlayerVehicleId[] = ['gol-g5', 'uno', 'palio', 'celta', 'corsa', 'onix', 'hb20', 'saveiro', 'fiorino']
 export const LEADERBOARD_SIZE = 10
 
 export function defaultSave(): SaveData {
   return {
-    version: 6,
+    version: 7,
     locale: '',
     musicVolume: 0.7,
     sfxVolume: 0.8,
@@ -61,6 +65,10 @@ export function defaultSave(): SaveData {
     unlockedWheels: ['alloy'],
     playerTint: 'smoke',
     unlockedTints: ['smoke'],
+    playerSpoiler: 'none',
+    unlockedSpoilers: ['none'],
+    playerSuspension: 'stock',
+    unlockedSuspensions: ['stock'],
     unlockedVehicles: ['gol-g5'],
     credits: 0,
     lifetimeCredits: 0,
@@ -83,7 +91,7 @@ export function parseSave(raw: string | null): SaveData {
   } catch {
     return base
   }
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6) return base
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== 7 return base
   const unlockedVehicles: PlayerVehicleId[] = data.version === 3
     ? [...VEHICLES] // Version 3 exposed the whole garage for free; preserve every vehicle already available.
     : typeof data.version === 'number' && data.version >= 4 && Array.isArray(data.unlockedVehicles)
@@ -95,20 +103,28 @@ export function parseSave(raw: string | null): SaveData {
     : ['#4a5052']
   if (!unlockedPaints.includes('#4a5052')) unlockedPaints.unshift('#4a5052')
   const wheelIds = ['alloy', 'black', 'sport']
-  const unlockedWheels = data.version === 6 && Array.isArray(data.unlockedWheels) ? [...new Set(data.unlockedWheels.filter((id): id is string => typeof id === 'string' && wheelIds.includes(id)))] : ['alloy']
+  const unlockedWheels = typeof data.version === 'number' && data.version >= 6 && Array.isArray(data.unlockedWheels) ? [...new Set(data.unlockedWheels.filter((id): id is string => typeof id === 'string' && wheelIds.includes(id)))] : ['alloy']
   if (!unlockedWheels.includes('alloy')) unlockedWheels.unshift('alloy')
   const playerWheels = typeof data.playerWheels === 'string' && unlockedWheels.includes(data.playerWheels) ? data.playerWheels : 'alloy'
   const tintIds = ['light', 'smoke', 'dark']
-  const unlockedTints = data.version === 6 && Array.isArray(data.unlockedTints) ? [...new Set(data.unlockedTints.filter((id): id is string => typeof id === 'string' && tintIds.includes(id)))] : ['smoke']
+  const unlockedTints = typeof data.version === 'number' && data.version >= 6 && Array.isArray(data.unlockedTints) ? [...new Set(data.unlockedTints.filter((id): id is string => typeof id === 'string' && tintIds.includes(id)))] : ['smoke']
   if (!unlockedTints.includes('smoke')) unlockedTints.unshift('smoke')
   const playerTint = typeof data.playerTint === 'string' && unlockedTints.includes(data.playerTint) ? data.playerTint : 'smoke'
+  const spoilerIds = ['none', 'street']
+  const unlockedSpoilers = typeof data.version === 'number' && data.version >= 7 && Array.isArray(data.unlockedSpoilers) ? [...new Set(data.unlockedSpoilers.filter((id): id is string => typeof id === 'string' && spoilerIds.includes(id)))] : ['none']
+  if (!unlockedSpoilers.includes('none')) unlockedSpoilers.unshift('none')
+  const playerSpoiler = typeof data.playerSpoiler === 'string' && unlockedSpoilers.includes(data.playerSpoiler) ? data.playerSpoiler : 'none'
+  const suspensionIds = ['stock', 'lowered', 'slammed']
+  const unlockedSuspensions = typeof data.version === 'number' && data.version >= 7 && Array.isArray(data.unlockedSuspensions) ? [...new Set(data.unlockedSuspensions.filter((id): id is string => typeof id === 'string' && suspensionIds.includes(id)))] : ['stock']
+  if (!unlockedSuspensions.includes('stock')) unlockedSuspensions.unshift('stock')
+  const playerSuspension = typeof data.playerSuspension === 'string' && unlockedSuspensions.includes(data.playerSuspension) ? data.playerSuspension : 'stock'
   const requestedPaint = typeof data.playerPaint === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.playerPaint) ? data.playerPaint.toLowerCase() : base.playerPaint
   const playerPaint = unlockedPaints.includes(requestedPaint) ? requestedPaint : '#4a5052'
   const requestedVehicle = VEHICLES.includes(data.playerVehicle as PlayerVehicleId) ? data.playerVehicle as PlayerVehicleId : base.playerVehicle
   const playerVehicle = unlockedVehicles.includes(requestedVehicle) ? requestedVehicle : 'gol-g5'
   const board = Array.isArray(data.leaderboard) ? data.leaderboard : []
   return {
-    version: 6,
+    version: 7,
     locale: data.locale === 'en' || data.locale === 'zh-CN' ? data.locale : '',
     musicVolume: clamp01(data.musicVolume, base.musicVolume),
     sfxVolume: clamp01(data.sfxVolume, base.sfxVolume),
@@ -126,6 +142,10 @@ export function parseSave(raw: string | null): SaveData {
     unlockedWheels,
     playerTint,
     unlockedTints,
+    playerSpoiler,
+    unlockedSpoilers,
+    playerSuspension,
+    unlockedSuspensions,
     unlockedVehicles,
     credits: Number.isFinite(data.credits) ? Math.max(0, Math.floor(data.credits as number)) : base.credits,
     lifetimeCredits: Number.isFinite(data.lifetimeCredits) ? Math.max(0, Math.floor(data.lifetimeCredits as number)) : base.lifetimeCredits,
