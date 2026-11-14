@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateScore, clampSteering, collides, isNearMiss, laneCenter, trafficDifficulty, trafficWaveSize } from './race-rules'
+import { calculateScore, clampSteering, collides, hasTrafficSpawnGap, isNearMiss, laneCenter, trafficDifficulty, trafficSpeedFactor, trafficWaveSize } from './race-rules'
 import { RACE_CONFIG } from './race-config'
 
 describe('race rules', () => {
@@ -19,6 +19,27 @@ describe('race rules', () => {
   it('calculates score without rewarding negative distance or near misses', () => {
     expect(calculateScore(100.9, 2.8)).toBe(1700)
     expect(calculateScore(-10, -2)).toBe(0)
+  })
+
+  it('gives vehicle types distinct but deterministic traffic speeds', () => {
+    const sedan = trafficSpeedFactor(1.5, 'sedan', 0.5)
+    const pickup = trafficSpeedFactor(1.5, 'pickup', 0.5)
+    const suv = trafficSpeedFactor(1.5, 'suv', 0.5)
+    const van = trafficSpeedFactor(1.5, 'van', 0.5)
+
+    expect(sedan).toBe(1.5)
+    expect(sedan).toBeGreaterThan(pickup)
+    expect(pickup).toBeGreaterThan(suv)
+    expect(suv).toBeGreaterThan(van)
+    expect(trafficSpeedFactor(1.5, 'sedan', -1)).toBe(1.35)
+    expect(trafficSpeedFactor(1.5, 'sedan', 2)).toBe(1.65)
+  })
+
+  it('keeps a minimum gap between vehicles spawning in the same lane', () => {
+    expect(hasTrafficSpawnGap([], -100, 26)).toBe(true)
+    expect(hasTrafficSpawnGap([-130, -70], -100, 26)).toBe(true)
+    expect(hasTrafficSpawnGap([-120, -70], -100, 26)).toBe(false)
+    expect(hasTrafficSpawnGap([-125], -100, 26)).toBe(false)
   })
 
   it('detects collisions and near misses at their boundaries', () => {
