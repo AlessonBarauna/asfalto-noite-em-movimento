@@ -6,6 +6,7 @@ import { RACE_CONFIG } from './race-config'
 import { calculateScore, clampSteering, hasTrafficSpawnGap, laneCenter, trafficDifficulty, trafficSpeedFactor, trafficWaveSize } from './race-rules'
 import type { TrafficKind } from './race-rules'
 import { RaceWorld } from './race-world'
+import { createGolG5Model } from './gol-g5'
 import { tuning } from './tuning'
 
 export type RaceSnapshot = {
@@ -60,7 +61,6 @@ export class RaceGame {
     private readonly renderer: Renderer,
     private readonly input: Input,
     private readonly audio: Audio,
-    carPrototype?: THREE.Object3D,
     sounds: { crash?: AudioBuffer; engine?: AudioBuffer } = {},
   ) {
     this.world = new RaceWorld()
@@ -68,7 +68,7 @@ export class RaceGame {
     this.engineBuffer = sounds.engine
     this.world.scene.add(this.player)
     this.player.add(this.playerVisual)
-    this.mountModel(this.playerVisual, carPrototype, PLAYER_PAINT)
+    this.playerVisual.add(createGolG5Model(PLAYER_PAINT))
     this.player.rotation.y = Math.PI // glTF vehicles face +Z; the player drives toward -Z.
     this.player.position.set(0, 0.02, RACE_CONFIG.playerZ)
     this.createTrafficPool()
@@ -276,68 +276,6 @@ export class RaceGame {
     }
     const plate = addBox(0.48, 0.12, 0.025, CHROME, 0, 0.46, dimensions.length * 0.5 + 0.06)
     plate.castShadow = false
-  }
-
-  private mountModel(target: THREE.Group, prototype: THREE.Object3D | undefined, paint: THREE.Color): void {
-    if (prototype) {
-      const car = prototype.clone(true)
-      car.updateMatrixWorld(true)
-      const bounds = new THREE.Box3().setFromObject(car)
-      const size = bounds.getSize(new THREE.Vector3())
-      const span = Math.max(size.x, size.z)
-      if (Number.isFinite(span) && span > 0.05) {
-        const scale = 4.45 / span
-        car.scale.setScalar(scale)
-        car.position.set(-(bounds.min.x + size.x / 2) * scale, -bounds.min.y * scale, -(bounds.min.z + size.z / 2) * scale)
-      }
-      car.traverse(node => {
-        if (!(node instanceof THREE.Mesh)) return
-        node.castShadow = true
-        node.receiveShadow = true
-        const tintMaterial = (source: THREE.Material): THREE.Material => {
-          const copy = source.clone()
-          if ('color' in copy && copy.color instanceof THREE.Color) copy.color.lerp(paint, 0.22)
-          return copy
-        }
-        node.material = Array.isArray(node.material) ? node.material.map(tintMaterial) : tintMaterial(node.material)
-      })
-      target.add(car)
-    } else {
-      const bodyMaterial = new THREE.MeshStandardMaterial({ color: paint, metalness: 0.62, roughness: 0.28 })
-      const glass = new THREE.MeshStandardMaterial({ color: '#17252e', metalness: 0.25, roughness: 0.2 })
-      const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.62, 4.35), bodyMaterial)
-      body.position.y = 0.62
-      body.castShadow = true
-      body.receiveShadow = true
-      target.add(body)
-      const hood = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.16, 1.0), bodyMaterial)
-      hood.position.set(0, 0.95, 1.28)
-      target.add(hood)
-      const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.58, 2.0), glass)
-      cabin.position.set(0, 1.15, -0.15)
-      cabin.castShadow = true
-      target.add(cabin)
-      for (const side of [-1, 1]) {
-        for (const z of [-1.42, 1.42]) {
-          const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.39, 0.39, 0.27, 14), new THREE.MeshStandardMaterial({ color: '#121518', roughness: 0.86 }))
-          tire.rotation.z = Math.PI / 2
-          tire.position.set(side * 0.92, 0.4, z)
-          target.add(tire)
-        }
-      }
-    }
-    const heading = target === this.playerVisual ? -1 : 1
-    const lights = new THREE.Group()
-    const lampPositions = [-0.66, 0.66]
-    for (const x of lampPositions) {
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.13, 0.08), CAR_HEADLIGHT)
-      head.position.set(x, 0.55, heading * 2.14)
-      lights.add(head)
-      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.08), CAR_TAILLIGHT)
-      tail.position.set(x, 0.55, -heading * 2.13)
-      lights.add(tail)
-    }
-    target.add(lights)
   }
 
   private spawnTraffic(): void {
