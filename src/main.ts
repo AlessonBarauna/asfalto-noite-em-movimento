@@ -55,7 +55,7 @@ async function boot(): Promise<void> {
       if (!save.data.unlockedPaints.includes(paint)) return
       save.update({ playerPaint: paint })
       game?.setPlayerVehicle(save.data.playerVehicle, paint, save.data.playerWheels, save.data.playerTint)
-      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints)
+      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints)
     },
     purchasePaint: paint => {
       const purchase = buyPaint(save.data.credits, save.data.unlockedPaints, paint)
@@ -65,7 +65,7 @@ async function boot(): Promise<void> {
       }
       save.update({ credits: purchase.balance, unlockedPaints: purchase.unlockedPaints, playerPaint: paint })
       game?.setPlayerVehicle(save.data.playerVehicle, paint)
-      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints)
+      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints)
       ui.toast('PINTURA COMPRADA E APLICADA')
       return true
     },
