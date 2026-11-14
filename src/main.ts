@@ -20,7 +20,7 @@ async function boot(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#ui')
   if (!canvas || !root) throw new Error('Canvas ou camada de interface indisponível')
 
-  const firstRun = safeGet(SAVE_KEY) === null && safeGet('asfalto.save.v4') === null && safeGet('asfalto.save.v3') === null && safeGet('asfalto.save.v2') === null && safeGet('asfalto.save.v1') === null
+  const firstRun = safeGet(SAVE_KEY) === null && safeGet('asfalto.save.v5') === null && safeGet('asfalto.save.v4') === null && safeGet('asfalto.save.v3') === null && safeGet('asfalto.save.v2') === null && safeGet('asfalto.save.v1') === null
   const save = new SaveStore()
   if (firstRun) save.update({ quality: suggestQuality() })
   const input = new Input(canvas)
