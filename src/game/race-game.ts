@@ -7,6 +7,7 @@ import { calculateScore, clampSteering, hasTrafficSpawnGap, laneCenter, trafficD
 import type { TrafficKind } from './race-rules'
 import { RaceWorld } from './race-world'
 import { createGolG5Model } from './gol-g5'
+import { BRAZILIAN_TRAFFIC_MODELS, createBrazilianTrafficVehicle } from './traffic-vehicles'
 import { tuning } from './tuning'
 
 export type RaceSnapshot = {
@@ -202,80 +203,16 @@ export class RaceGame {
   private createTrafficPool(): void {
     for (let i = 0; i < 14; i += 1) {
       const root = new THREE.Group()
-      const kind = (['sedan', 'suv', 'van', 'pickup'] as const)[i % 4]
+      const model = BRAZILIAN_TRAFFIC_MODELS[i % BRAZILIAN_TRAFFIC_MODELS.length]
+      const kind = model.kind
       const paint = TRAFFIC_PAINTS[i % TRAFFIC_PAINTS.length]
-      this.createTrafficVehicle(root, kind, paint)
+      root.add(createBrazilianTrafficVehicle(model.id, paint))
       root.rotation.y = 0
       root.position.set(0, 0.02, -100 - i * 9)
       root.visible = false
       this.world.scene.add(root)
-      const dimensions = trafficDimensions(kind)
-      this.traffic.push({ root, kind, lane: 1, active: false, tagged: false, speedFactor: 1, width: dimensions.width, length: dimensions.length })
+      this.traffic.push({ root, kind, lane: 1, active: false, tagged: false, speedFactor: 1, width: model.width, length: model.length })
     }
-  }
-
-  private createTrafficVehicle(target: THREE.Group, kind: TrafficKind, paint: THREE.Color): void {
-    const dimensions = trafficDimensions(kind)
-    const bodyMaterial = new THREE.MeshPhysicalMaterial({ color: paint, metalness: 0.72, roughness: 0.24, clearcoat: 0.85, clearcoatRoughness: 0.18 })
-    const darkMaterial = new THREE.MeshStandardMaterial({ color: '#20282e', metalness: 0.5, roughness: 0.42 })
-    const addBox = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number, bevel = false) => {
-      const geometry = new THREE.BoxGeometry(w, h, d)
-      const mesh = new THREE.Mesh(geometry, material)
-      mesh.position.set(x, y, z)
-      mesh.castShadow = true
-      mesh.receiveShadow = true
-      target.add(mesh)
-      if (bevel) {
-        const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.08 }))
-        edge.position.copy(mesh.position)
-        target.add(edge)
-      }
-      return mesh
-    }
-    const bodyHeight = kind === 'van' ? 1.05 : kind === 'suv' ? 0.88 : 0.68
-    addBox(dimensions.width, bodyHeight, dimensions.length, bodyMaterial, 0, bodyHeight * 0.58, 0, true)
-    addBox(dimensions.width * 0.94, 0.16, 0.5, darkMaterial, 0, 0.34, dimensions.length * 0.48)
-    addBox(dimensions.width * 0.94, 0.16, 0.5, darkMaterial, 0, 0.34, -dimensions.length * 0.48)
-
-    if (kind === 'van' || kind === 'pickup') {
-      const cargoDepth = kind === 'van' ? 2.25 : 1.45
-      addBox(dimensions.width * 0.88, kind === 'van' ? 1.45 : 0.78, cargoDepth, kind === 'van' ? bodyMaterial : darkMaterial, 0, bodyHeight + (kind === 'van' ? 0.55 : 0.34), -0.25)
-      if (kind === 'van') {
-        const sideWindow = new THREE.MeshPhysicalMaterial({ color: '#182b38', roughness: 0.24, metalness: 0.2, transparent: true, opacity: 0.86 })
-        for (const side of [-1, 1]) addBox(0.025, 0.68, 1.25, sideWindow, side * dimensions.width * 0.445, 1.35, -0.28)
-      } else {
-        addBox(dimensions.width * 0.82, 0.08, 0.06, CHROME, 0, 0.82, -1.02)
-      }
-    } else {
-      const cabinLength = kind === 'suv' ? 2.15 : 1.78
-      addBox(dimensions.width * 0.78, kind === 'suv' ? 0.92 : 0.72, cabinLength, GLASS, 0, bodyHeight + 0.34, -0.12, true)
-      addBox(dimensions.width * 0.7, 0.08, 0.16, darkMaterial, 0, bodyHeight + 0.78, -0.12)
-    }
-
-    const wheelRadius = kind === 'van' ? 0.43 : 0.38
-    for (const side of [-1, 1]) {
-      for (const z of [-dimensions.length * 0.32, dimensions.length * 0.32]) {
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(wheelRadius, wheelRadius, 0.24, 18), RUBBER)
-        wheel.rotation.z = Math.PI / 2
-        wheel.position.set(side * (dimensions.width * 0.49), wheelRadius, z)
-        wheel.castShadow = true
-        target.add(wheel)
-        const hub = new THREE.Mesh(new THREE.CylinderGeometry(wheelRadius * 0.48, wheelRadius * 0.48, 0.255, 12), CHROME)
-        hub.rotation.z = Math.PI / 2
-        hub.position.copy(wheel.position)
-        target.add(hub)
-      }
-    }
-    for (const side of [-1, 1]) {
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.16, 0.08), CAR_HEADLIGHT)
-      head.position.set(side * dimensions.width * 0.31, 0.55, dimensions.length * 0.5 + 0.015)
-      target.add(head)
-      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.14, 0.08), CAR_TAILLIGHT)
-      tail.position.set(side * dimensions.width * 0.32, 0.56, -dimensions.length * 0.5 - 0.015)
-      target.add(tail)
-    }
-    const plate = addBox(0.48, 0.12, 0.025, CHROME, 0, 0.46, dimensions.length * 0.5 + 0.06)
-    plate.castShadow = false
   }
 
   private spawnTraffic(): void {
@@ -372,14 +309,5 @@ function seeded(seed: number): () => number {
   return () => {
     state = (state * 1664525 + 1013904223) >>> 0
     return state / 4294967296
-  }
-}
-
-function trafficDimensions(kind: TrafficKind): { width: number; length: number } {
-  switch (kind) {
-    case 'suv': return { width: 2.12, length: 4.85 }
-    case 'van': return { width: 2.18, length: 5.35 }
-    case 'pickup': return { width: 2.08, length: 5.05 }
-    default: return { width: 1.86, length: 4.35 }
   }
 }
