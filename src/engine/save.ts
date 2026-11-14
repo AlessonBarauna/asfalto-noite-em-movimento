@@ -86,7 +86,7 @@ export function parseSave(raw: string | null): SaveData {
   if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6) return base
   const unlockedVehicles: PlayerVehicleId[] = data.version === 3
     ? [...VEHICLES] // Version 3 exposed the whole garage for free; preserve every vehicle already available.
-    : data.version === 4 && Array.isArray(data.unlockedVehicles)
+    : data.version >= 4 && Array.isArray(data.unlockedVehicles)
       ? [...new Set(data.unlockedVehicles.filter((id): id is PlayerVehicleId => VEHICLES.includes(id as PlayerVehicleId)))]
       : ['gol-g5']
   if (!unlockedVehicles.includes('gol-g5')) unlockedVehicles.unshift('gol-g5')
