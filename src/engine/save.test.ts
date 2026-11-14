@@ -4,7 +4,7 @@ import { defaultSave, parseSave } from './save'
 describe('versioned save and vehicle unlock migration', () => {
   it('starts a new profile with only the Gol G5 unlocked', () => {
     const save = defaultSave()
-    expect(save.version).toBe(5)
+    expect(save.version).toBe(6)
     expect(save.playerVehicle).toBe('gol-g5')
     expect(save.unlockedVehicles).toEqual(['gol-g5'])
   })
@@ -45,13 +45,13 @@ describe('versioned save and vehicle unlock migration', () => {
 describe('paint save migration', () => {
   it('starts with the graphite paint unlocked', () => {
     const save = defaultSave()
-    expect(save.version).toBe(5)
+    expect(save.version).toBe(6)
     expect(save.playerPaint).toBe('#4a5052')
     expect(save.unlockedPaints).toEqual(['#4a5052'])
   })
   it('migrates version 4 garage saves without losing credits or vehicles', () => {
     const save = parseSave(JSON.stringify({ version: 4, playerVehicle: 'uno', unlockedVehicles: ['gol-g5', 'uno'], credits: 320 }))
-    expect(save.version).toBe(5)
+    expect(save.version).toBe(6)
     expect(save.playerVehicle).toBe('uno')
     expect(save.unlockedVehicles).toEqual(['gol-g5', 'uno'])
     expect(save.playerPaint).toBe('#4a5052')
