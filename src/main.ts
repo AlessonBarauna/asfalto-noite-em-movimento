@@ -5,7 +5,7 @@ import { GameLoop } from './engine/loop'
 import { Renderer, suggestQuality } from './engine/renderer'
 import { SAVE_KEY, SaveStore, insertScore } from './engine/save'
 import { RaceGame, type RaceResult } from './game/race-game'
-import { calculateRacePayout, purchaseVehicle as buyVehicle, purchasePaint as buyPaint } from './game/economy'
+import { calculateRacePayout, purchaseVehicle as buyVehicle, purchasePaint as buyPaint, purchaseWheels as buyWheels, purchaseTint as buyTint } from './game/economy'
 import type { BrazilianTrafficModel } from './game/traffic-vehicles'
 import { tuning } from './game/tuning'
 import { TouchControls } from './ui/touch'
@@ -33,12 +33,12 @@ async function boot(): Promise<void> {
     restart: () => startRun(),
     toTitle: () => { game?.toTitle(); ui.showTitle(bestScore(), save.data.playerName, save.data.credits) },
     openLeaderboard: () => { ui.showLeaderboard(save.data.leaderboard) },
-    openGarage: () => { ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints) },
+    openGarage: () => { ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints) },
     selectVehicle: model => {
       if (!save.data.unlockedVehicles.includes(model)) return
       save.update({ playerVehicle: model })
-      game?.setPlayerVehicle(model, save.data.playerPaint)
-      ui.showGarage(model, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints)
+      game?.setPlayerVehicle(model, save.data.playerPaint, save.data.playerWheels, save.data.playerTint)
+      ui.showGarage(model, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints)
     },
     purchaseVehicle: model => {
       const purchase = buyVehicle(save.data.credits, save.data.unlockedVehicles, model)
@@ -47,14 +47,14 @@ async function boot(): Promise<void> {
         return false
       }
       save.update({ credits: purchase.balance, unlockedVehicles: purchase.unlockedVehicles })
-      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints)
+      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints)
       ui.toast('VEÍCULO DESBLOQUEADO')
       return true
     },
     selectPaint: paint => {
       if (!save.data.unlockedPaints.includes(paint)) return
       save.update({ playerPaint: paint })
-      game?.setPlayerVehicle(save.data.playerVehicle, paint)
+      game?.setPlayerVehicle(save.data.playerVehicle, paint, save.data.playerWheels, save.data.playerTint)
       ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints)
     },
     purchasePaint: paint => {
@@ -68,6 +68,34 @@ async function boot(): Promise<void> {
       ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints)
       ui.toast('PINTURA COMPRADA E APLICADA')
       return true
+    },
+    selectWheels: id => {
+      if (!save.data.unlockedWheels.includes(id)) return
+      save.update({ playerWheels: id })
+      game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, id, save.data.playerTint)
+      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints)
+    },
+    purchaseWheels: id => {
+      const result = buyWheels(save.data.credits, save.data.unlockedWheels, id)
+      if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'RODA JÁ DESBLOQUEADA' : 'CRÉDITOS INSUFICIENTES'); return false }
+      save.update({ credits: result.balance, unlockedWheels: result.unlocked, playerWheels: id })
+      game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, id, save.data.playerTint)
+      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints)
+      ui.toast('RODAS COMPRADAS E APLICADAS'); return true
+    },
+    selectTint: id => {
+      if (!save.data.unlockedTints.includes(id)) return
+      save.update({ playerTint: id })
+      game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, id)
+      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints)
+    },
+    purchaseTint: id => {
+      const result = buyTint(save.data.credits, save.data.unlockedTints, id)
+      if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'INSULFILM JÁ DESBLOQUEADO' : 'CRÉDITOS INSUFICIENTES'); return false }
+      save.update({ credits: result.balance, unlockedTints: result.unlocked, playerTint: id })
+      game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, id)
+      ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints)
+      ui.toast('INSULFILM COMPRADO E APLICADO'); return true
     },
   })
   activeUI = ui
@@ -115,7 +143,7 @@ async function boot(): Promise<void> {
 
   ui.setBootProgress(0.76, 'Preparando o trânsito…')
   const renderer = new Renderer(canvas, save.data.quality)
-  game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound, playerVehicle: save.data.playerVehicle as BrazilianTrafficModel, playerPaint: save.data.playerPaint })
+  game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound, playerVehicle: save.data.playerVehicle as BrazilianTrafficModel, playerPaint: save.data.playerPaint, playerWheels: save.data.playerWheels, playerTint: save.data.playerTint })
   if (import.meta.env.DEV) {
     const [{ registerGameTuning }] = await Promise.all([import('../scripts/manus-tuning/adapter.js')])
     void registerGameTuning(tuning)
