@@ -10,7 +10,7 @@ export type PlayerVehicleId = 'gol-g5' | 'uno' | 'palio' | 'celta' | 'corsa' | '
 export type ScoreEntry = { name: string; score: number; seconds: number; at: number }
 
 export type SaveData = {
-  version: 2
+  version: 3
   /** '' = never chosen; the game follows the browser language until the player picks one. */
   locale: Locale | ''
   musicVolume: number
@@ -23,17 +23,20 @@ export type SaveData = {
   tutorialDone: boolean
   playerName: string
   playerVehicle: PlayerVehicleId
+  credits: number
+  lifetimeCredits: number
+  completedRuns: number
   leaderboard: ScoreEntry[]
 }
 
-export const SAVE_KEY = 'asfalto.save.v2'
-const LEGACY_SAVE_KEY = 'asfalto.save.v1'
+export const SAVE_KEY = 'asfalto.save.v3'
+const LEGACY_SAVE_KEYS = ['asfalto.save.v2', 'asfalto.save.v1']
 const VEHICLES: PlayerVehicleId[] = ['gol-g5', 'uno', 'palio', 'celta', 'corsa', 'onix', 'hb20', 'saveiro', 'fiorino']
 export const LEADERBOARD_SIZE = 10
 
 export function defaultSave(): SaveData {
   return {
-    version: 2,
+    version: 3,
     locale: '',
     musicVolume: 0.7,
     sfxVolume: 0.8,
@@ -45,6 +48,9 @@ export function defaultSave(): SaveData {
     tutorialDone: false,
     playerName: 'PILOTO',
     playerVehicle: 'gol-g5',
+    credits: 0,
+    lifetimeCredits: 0,
+    completedRuns: 0,
     leaderboard: [],
   }
 }
@@ -63,10 +69,10 @@ export function parseSave(raw: string | null): SaveData {
   } catch {
     return base
   }
-  if (data.version !== 1 && data.version !== 2) return base
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3) return base
   const board = Array.isArray(data.leaderboard) ? data.leaderboard : []
   return {
-    version: 2,
+    version: 3,
     locale: data.locale === 'en' || data.locale === 'zh-CN' ? data.locale : '',
     musicVolume: clamp01(data.musicVolume, base.musicVolume),
     sfxVolume: clamp01(data.sfxVolume, base.sfxVolume),
@@ -78,6 +84,9 @@ export function parseSave(raw: string | null): SaveData {
     tutorialDone: data.tutorialDone === true,
     playerName: typeof data.playerName === 'string' && data.playerName.trim() ? data.playerName.trim().slice(0, 16) : base.playerName,
     playerVehicle: VEHICLES.includes(data.playerVehicle as PlayerVehicleId) ? data.playerVehicle as PlayerVehicleId : base.playerVehicle,
+    credits: Number.isFinite(data.credits) ? Math.max(0, Math.floor(data.credits as number)) : base.credits,
+    lifetimeCredits: Number.isFinite(data.lifetimeCredits) ? Math.max(0, Math.floor(data.lifetimeCredits as number)) : base.lifetimeCredits,
+    completedRuns: Number.isFinite(data.completedRuns) ? Math.max(0, Math.floor(data.completedRuns as number)) : base.completedRuns,
     leaderboard: board
       .filter((e): e is ScoreEntry => !!e && typeof e === 'object' && typeof (e as ScoreEntry).name === 'string' && Number.isFinite((e as ScoreEntry).score))
       .map(e => ({ name: e.name.slice(0, 16), score: Math.max(0, Math.floor(e.score)), seconds: Number.isFinite(e.seconds) ? e.seconds : 0, at: Number.isFinite(e.at) ? e.at : 0 }))
@@ -97,7 +106,7 @@ export class SaveStore {
   constructor(private readonly storage: Pick<Storage, 'getItem' | 'setItem'> | undefined = globalThis.localStorage) {
     let raw: string | null = null
     try {
-      raw = this.storage?.getItem(SAVE_KEY) ?? this.storage?.getItem(LEGACY_SAVE_KEY) ?? null
+      raw = this.storage?.getItem(SAVE_KEY) ?? LEGACY_SAVE_KEYS.map(key => this.storage?.getItem(key)).find(value => value !== null) ?? null
     } catch {
       raw = null
     }
