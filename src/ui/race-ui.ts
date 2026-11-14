@@ -1,6 +1,6 @@
 import copy from '../i18n/pt-BR.json'
 import type { PlayerVehicleId, ScoreEntry } from '../engine/save'
-import { VEHICLE_PRICES } from '../game/economy'
+import { PAINT_OPTIONS, VEHICLE_PRICES } from '../game/economy'
 import { BRAZILIAN_TRAFFIC_MODELS, type BrazilianTrafficModel } from '../game/traffic-vehicles'
 
 export type RaceUiState = {
@@ -23,6 +23,8 @@ export type RaceUiActions = {
   openLeaderboard(): void
   selectVehicle(model: BrazilianTrafficModel): void
   purchaseVehicle(model: BrazilianTrafficModel): boolean
+  selectPaint(paint: string): void
+  purchasePaint(paint: string): boolean
   openGarage(): void
 }
 
@@ -86,7 +88,7 @@ export class RaceUI {
     this.show('title')
   }
 
-  showGarage(selected: BrazilianTrafficModel, unlocked: PlayerVehicleId[] = ['gol-g5'], credits = 0): void {
+  showGarage(selected: BrazilianTrafficModel, unlocked: PlayerVehicleId[] = ['gol-g5'], credits = 0, selectedPaint = '#4a5052', unlockedPaints: string[] = ['#4a5052']): void {
     if (this.screen !== 'garage') this.returnAfterGarage = this.screen === 'pause' ? 'pause' : 'title'
     this.set('.garage-balance', credits.toLocaleString('pt-BR'))
     const grid = this.root.querySelector<HTMLElement>('.garage-grid')
@@ -103,6 +105,16 @@ export class RaceUI {
         return '<button class="garage-car is-locked" data-buy-vehicle="' + model.id + '" ' + (affordable ? '' : 'disabled') + '><span class="garage-car-type">' + type + ' · BLOQUEADO</span><strong>' + model.label + '</strong><small>' + price.toLocaleString('pt-BR') + ' CR · ' + (affordable ? 'COMPRAR' : 'SALDO INSUFICIENTE') + '</small></button>'
       }).join('')
     }
+    const paintGrid = this.root.querySelector<HTMLElement>('.paint-grid')
+    if (paintGrid) paintGrid.innerHTML = PAINT_OPTIONS.map(option => {
+      const owned = unlockedPaints.includes(option.id)
+      const active = selectedPaint.toLowerCase() === option.id
+      const affordable = credits >= option.price
+      const action = owned ? 'data-paint' : 'data-buy-paint'
+      const disabled = !owned && !affordable ? 'disabled' : ''
+      const label = owned ? (active ? 'EM USO' : 'APLICAR') : (option.price.toLocaleString('pt-BR') + ' CR')
+      return '<button class="paint-swatch ' + (active ? 'is-selected' : '') + '" ' + action + '="' + option.id + '" ' + disabled + ' aria-label="' + option.label + ': ' + label + '"><i style="--paint:' + option.id + '"></i><strong>' + option.label + '</strong><small>' + label + '</small></button>'
+    }).join('')
     this.show('garage')
   }
   showPause(): void {
@@ -147,6 +159,10 @@ export class RaceUI {
   }
 
   private onClick(event: MouseEvent): void {
+    const buyPaint = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-buy-paint]')
+    if (buyPaint?.dataset.buyPaint) { this.actions.purchasePaint(buyPaint.dataset.buyPaint); return }
+    const paint = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-paint]')
+    if (paint?.dataset.paint) { this.actions.selectPaint(paint.dataset.paint); return }
     const buy = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-buy-vehicle]')
     if (buy?.dataset.buyVehicle) {
       this.actions.purchaseVehicle(buy.dataset.buyVehicle as BrazilianTrafficModel)
@@ -208,7 +224,7 @@ export class RaceUI {
   <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="payout-panel"><span>RECOMPENSA DA CORRIDA</span><strong class="result-credits">+0 CR</strong><small>SALDO: <b class="result-balance">0</b> CR</small></div><div class="modal-tag result-note"></div>
   <div class="modal-menu"><button class="game-btn primary" data-action="restart">${copy['results.retry']}</button><button class="game-btn" data-action="leaderboard">${copy['results.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
-<section class="screen screen-modal" data-screen="garage"><div class="modal garage-modal"><div class="eyebrow">ASFALTO · GARAGEM</div><h2>ESCOLHA SEU CARRO</h2><p>Compre novos veículos com os créditos conquistados nas corridas. O Gol G5 continua sendo seu carro inicial.</p><div class="garage-wallet">SALDO DISPONÍVEL: <strong class="garage-balance"></strong> CR</div><div class="garage-notice" aria-live="polite"></div><div class="garage-grid"></div><div class="modal-menu"><button class="game-btn" data-action="garage-back">VOLTAR</button></div></div></section>
+<section class="screen screen-modal" data-screen="garage"><div class="modal garage-modal"><div class="eyebrow">ASFALTO · GARAGEM</div><h2>ESCOLHA SEU CARRO</h2><p>Compre novos veículos com os créditos conquistados nas corridas. O Gol G5 continua sendo seu carro inicial.</p><div class="garage-wallet">SALDO DISPONÍVEL: <strong class="garage-balance"></strong> CR</div><div class="garage-notice" aria-live="polite"></div><h3 class="garage-section-title">PINTURA</h3><div class="paint-grid"></div><h3 class="garage-section-title">VEÍCULOS</h3><div class="garage-grid"></div><div class="modal-menu"><button class="game-btn" data-action="garage-back">VOLTAR</button></div></div></section>
 <section class="screen screen-modal" data-screen="leaderboard"><div class="modal"><div class="eyebrow">ASFALTO · RECORDES</div><h2>${copy['leaderboard.title']}</h2><div class="board-source">${copy['leaderboard.local']}</div><ol class="score-list"><li class="score-empty">${copy['leaderboard.empty']}</li></ol>
   <div class="modal-menu"><button class="game-btn" data-action="back">${copy['menu.back']}</button></div>
 </div></section>
