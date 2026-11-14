@@ -48,7 +48,7 @@ describe('save', () => {
     expect(new SaveStore(storage).data.completedRuns).toBe(2)
     const previousVersion = new Map<string, string>([['asfalto.save.v2', JSON.stringify({ version: 2, playerVehicle: 'saveiro', credits: 85, playerName: 'V2' })]])
     const migratedV2 = new SaveStore({ getItem: key => previousVersion.get(key) ?? null, setItem: (key, value) => void previousVersion.set(key, value) })
-    expect(migratedV2.data.playerVehicle).toBe('saveiro')
+    expect(migratedV2.data.playerVehicle).toBe('gol-g5')
     expect(migratedV2.data.credits).toBe(85)
     migratedV2.update({ completedRuns: 1 })
     expect(JSON.parse(previousVersion.get(SAVE_KEY)!).version).toBe(8)
