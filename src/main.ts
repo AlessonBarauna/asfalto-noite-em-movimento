@@ -5,6 +5,7 @@ import { GameLoop } from './engine/loop'
 import { Renderer, suggestQuality } from './engine/renderer'
 import { SAVE_KEY, SaveStore, insertScore } from './engine/save'
 import { RaceGame, type RaceResult } from './game/race-game'
+import { calculateRacePayout } from './game/economy'
 import type { BrazilianTrafficModel } from './game/traffic-vehicles'
 import { tuning } from './game/tuning'
 import { TouchControls } from './ui/touch'
@@ -30,7 +31,7 @@ async function boot(): Promise<void> {
     pause: () => pauseRun(),
     resume: () => resumeRun(),
     restart: () => startRun(),
-    toTitle: () => { game?.toTitle(); ui.showTitle(bestScore(), save.data.playerName) },
+    toTitle: () => { game?.toTitle(); ui.showTitle(bestScore(), save.data.playerName, save.data.credits) },
     openLeaderboard: () => { ui.showLeaderboard(save.data.leaderboard) },
     openGarage: () => { ui.showGarage(save.data.playerVehicle) },
     selectVehicle: model => { save.update({ playerVehicle: model }); game?.setPlayerVehicle(model); ui.showGarage(model) },
@@ -87,7 +88,7 @@ async function boot(): Promise<void> {
   }
   new TouchControls(root, input, () => game?.mode === 'playing')
   ui.setBootProgress(1, 'A cidade está pronta.')
-  ui.showTitle(bestScore(), save.data.playerName)
+  ui.showTitle(bestScore(), save.data.playerName, save.data.credits)
 
   const currentGame = game
   loop = new GameLoop({
@@ -119,13 +120,20 @@ async function boot(): Promise<void> {
   function finishRun(result: RaceResult): void {
     const previousBest = bestScore()
     let nextBest = previousBest
+    let payout = 0
     if (!result.unranked) {
       const entry = { name: save.data.playerName, score: result.score, seconds: result.seconds, at: Date.now() }
       const inserted = insertScore(save.data.leaderboard, entry)
-      save.update({ leaderboard: inserted.board })
+      payout = calculateRacePayout(result.distance, result.nearMisses).credits
+      save.update({
+        leaderboard: inserted.board,
+        credits: save.data.credits + payout,
+        lifetimeCredits: save.data.lifetimeCredits + payout,
+        completedRuns: save.data.completedRuns + 1,
+      })
       nextBest = Math.max(previousBest, inserted.board[0]?.score ?? 0)
     }
-    ui.showResults(result.score, result.distance, result.nearMisses, result.unranked ? previousBest : nextBest, result.unranked)
+    ui.showResults(result.score, result.distance, result.nearMisses, result.unranked ? previousBest : nextBest, result.unranked, payout, save.data.credits)
   }
 
   document.addEventListener('visibilitychange', () => { if (document.hidden) pauseRun() })
