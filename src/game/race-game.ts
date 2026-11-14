@@ -26,11 +26,6 @@ type TrafficCar = { root: THREE.Group; kind: TrafficKind; lane: number; active: 
 
 const PLAYER_PAINT = new THREE.Color('#4a5052')
 const TRAFFIC_PAINTS = ['#cbd0cc', '#395571', '#a3482d', '#666a70', '#aa9d7b', '#263f42', '#ddd5c7'].map(color => new THREE.Color(color))
-const CAR_HEADLIGHT = new THREE.MeshStandardMaterial({ color: '#fff6df', emissive: '#ffe1a5', emissiveIntensity: 4.4 })
-const CAR_TAILLIGHT = new THREE.MeshStandardMaterial({ color: '#8c241a', emissive: '#fc3426', emissiveIntensity: 3.2 })
-const RUBBER = new THREE.MeshStandardMaterial({ color: '#101316', roughness: 0.92 })
-const GLASS = new THREE.MeshPhysicalMaterial({ color: '#152633', roughness: 0.16, metalness: 0.18, clearcoat: 0.9, clearcoatRoughness: 0.12 })
-const CHROME = new THREE.MeshStandardMaterial({ color: '#aeb8bd', metalness: 0.82, roughness: 0.24 })
 
 /** Single-player traffic dodger: forward motion is expressed by scrolling the road and oncoming traffic. */
 export class RaceGame {
@@ -201,7 +196,7 @@ export class RaceGame {
   }
 
   private createTrafficPool(): void {
-    for (let i = 0; i < 14; i += 1) {
+    for (let i = 0; i < 18; i += 1) {
       const root = new THREE.Group()
       const model = BRAZILIAN_TRAFFIC_MODELS[i % BRAZILIAN_TRAFFIC_MODELS.length]
       const kind = model.kind
