@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateRacePayout, purchaseVehicle, VEHICLE_PRICES, purchasePaint, PAINT_OPTIONS, purchaseWheels, purchaseTint } from './economy'
+import { calculateRacePayout, purchaseVehicle, VEHICLE_PRICES, purchasePaint, PAINT_OPTIONS, purchaseWheels, purchaseTint, purchaseSpoiler, purchaseSuspension } from './economy'
 
 describe('race economy', () => {
   it('rewards distance in complete 100 m blocks', () => {
@@ -79,4 +79,9 @@ describe('wheel and tint accessory economy', () => {
     expect(purchaseWheels(1000, ['alloy', 'black'], 'black').reason).toBe('already-owned')
     expect(purchaseTint(10, ['smoke'], 'dark').reason).toBe('insufficient-credits')
   })
+})
+
+describe('spoiler and suspension economy', () => {
+ it('purchases exterior upgrades', () => {expect(purchaseSpoiler(700,['none'],'street')).toMatchObject({success:true,balance:20});expect(purchaseSuspension(650,['stock'],'lowered')).toMatchObject({success:true,balance:50})})
+ it('blocks duplicate and unaffordable upgrades', () => {expect(purchaseSpoiler(1000,['none','street'],'street').reason).toBe('already-owned');expect(purchaseSuspension(200,['stock'],'slammed').reason).toBe('insufficient-credits')})
 })
