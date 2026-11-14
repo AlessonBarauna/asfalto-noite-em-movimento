@@ -91,7 +91,7 @@ export function parseSave(raw: string | null): SaveData {
   } catch {
     return base
   }
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== 7 return base
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== 7) return base
   const unlockedVehicles: PlayerVehicleId[] = data.version === 3
     ? [...VEHICLES] // Version 3 exposed the whole garage for free; preserve every vehicle already available.
     : typeof data.version === 'number' && data.version >= 4 && Array.isArray(data.unlockedVehicles)
