@@ -2,6 +2,14 @@ import { RACE_CONFIG } from './race-config'
 
 export type RacePhase = 'title' | 'playing' | 'paused' | 'ended'
 export type TrafficDifficulty = { interval: number; speedFactor: number }
+export type TrafficKind = 'sedan' | 'suv' | 'van' | 'pickup'
+
+const TRAFFIC_KIND_SPEED: Record<TrafficKind, number> = {
+  sedan: 1,
+  suv: 0.94,
+  van: 0.88,
+  pickup: 0.97,
+}
 
 export function laneCenter(lane: number): number {
   return (lane - 1) * RACE_CONFIG.laneWidth
@@ -21,6 +29,17 @@ export function trafficDifficulty(elapsedSeconds: number): TrafficDifficulty {
     interval: Math.max(RACE_CONFIG.minTrafficInterval, RACE_CONFIG.trafficInterval - elapsed * 0.006),
     speedFactor: Math.min(1.66, RACE_CONFIG.trafficSpeedFactor + elapsed * 0.0015),
   }
+}
+
+/** Applies a vehicle-specific pace and a seeded variation in the 90%-110% range. */
+export function trafficSpeedFactor(baseFactor: number, kind: TrafficKind, variation: number): number {
+  const roll = Math.max(0, Math.min(1, variation))
+  return Math.max(0.1, baseFactor * TRAFFIC_KIND_SPEED[kind] * (0.9 + roll * 0.2))
+}
+
+/** Prevents a new vehicle from spawning too close to traffic already in the same lane. */
+export function hasTrafficSpawnGap(existingPositions: number[], spawnZ: number, minimumGap: number): boolean {
+  return existingPositions.every(position => Math.abs(position - spawnZ) >= minimumGap)
 }
 
 export function collides(playerX: number, playerZ: number, trafficX: number, trafficZ: number): boolean {
