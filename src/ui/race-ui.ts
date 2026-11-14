@@ -76,8 +76,9 @@ export class RaceUI {
     if (miss) miss.textContent = state.nearMisses ? `${state.nearMisses} ${copy['results.nearMiss']}` : ''
   }
 
-  showTitle(best: number, playerName = 'PILOTO'): void {
+  showTitle(best: number, playerName = 'PILOTO', credits = 0): void {
     this.set('.title-best-value', best.toLocaleString('pt-BR'))
+    this.set('.wallet-balance', credits.toLocaleString('pt-BR'))
     const name = this.root.querySelector<HTMLInputElement>('.driver-name')
     if (name) name.value = playerName
     this.show('title')
@@ -99,12 +100,14 @@ export class RaceUI {
     this.show('pause')
   }
 
-  showResults(score: number, distance: number, nearMisses: number, best: number, unranked: boolean): void {
+  showResults(score: number, distance: number, nearMisses: number, best: number, unranked: boolean, payout: number, balance: number): void {
     this.set('.result-score', score.toLocaleString('pt-BR'))
     this.set('.result-distance', `${(distance / 1000).toFixed(2)} ${copy['unit.km']}`)
     this.set('.result-near-misses', String(nearMisses))
     this.root.querySelector('.record-badge')?.classList.toggle('is-visible', !unranked && score > 0 && score >= best)
     this.set('.result-note', unranked ? 'CORRIDA DE TESTE · NÃO ENVIADA AO PLACAR' : 'RECORDE SALVO NESTE DISPOSITIVO')
+    this.set('.result-credits', '+' + payout.toLocaleString('pt-BR') + ' CR')
+    this.set('.result-balance', balance.toLocaleString('pt-BR'))
     this.show('results')
   }
 
@@ -173,7 +176,7 @@ export class RaceUI {
     <label class="pilot-input"><span>NOME NO PLACAR</span><input class="driver-name" name="pilot" type="text" maxlength="16" value="PILOTO" autocomplete="nickname" aria-label="Nome do piloto no placar" /></label>
     <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
   </div>
-  <div class="title-best">RECORDE LOCAL <b class="title-best-value">0</b></div>
+  <div class="title-wallet">SALDO <b><span class="wallet-balance">0</span> CR</b></div><div class="title-best">RECORDE LOCAL <b class="title-best-value">0</b></div>
   <div class="title-foot">${copy['hint.keyboard']}</div>
 </section>
 <section class="screen screen-hud" data-screen="hud">
@@ -187,7 +190,7 @@ export class RaceUI {
   <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="garage">GARAGEM</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
 <section class="screen screen-modal" data-screen="results"><div class="modal"><div class="eyebrow">ASFALTO · RESULTADO</div><h2>${copy['results.title']}</h2><div class="record-badge">${copy['results.best']}</div>
-  <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="modal-tag result-note"></div>
+  <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="payout-panel"><span>RECOMPENSA DA CORRIDA</span><strong class="result-credits">+0 CR</strong><small>SALDO: <b class="result-balance">0</b> CR</small></div><div class="modal-tag result-note"></div>
   <div class="modal-menu"><button class="game-btn primary" data-action="restart">${copy['results.retry']}</button><button class="game-btn" data-action="leaderboard">${copy['results.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
 <section class="screen screen-modal" data-screen="garage"><div class="modal garage-modal"><div class="eyebrow">ASFALTO · GARAGEM</div><h2>ESCOLHA SEU CARRO</h2><p>Selecione o veículo que vai encarar o trânsito.</p><div class="garage-grid"></div><div class="modal-menu"><button class="game-btn" data-action="garage-back">VOLTAR</button></div></div></section>

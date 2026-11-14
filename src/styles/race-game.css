@@ -22,3 +22,13 @@
 .garage-car strong{font-size:13px;line-height:1.2;}
 .garage-car small{font-size:8px;letter-spacing:.15em;color:var(--accent);font-weight:900;}
 @media(max-width:600px){.garage-modal{padding:23px 17px}.garage-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:48vh}.garage-car{min-height:98px;padding:10px}.garage-car strong{font-size:11px}}
+
+/* Wallet and race payout */
+.title-wallet{position:absolute;right:calc(34px + var(--safe-r));top:calc(27px + var(--safe-t));padding:10px 13px;border-right:1px solid var(--accent);background:#0b121a9e;color:#b5c0c5;font-size:9px;letter-spacing:.15em;text-align:right}
+.title-wallet b{display:block;color:#ffd19b;font-size:18px;letter-spacing:.04em;margin-top:4px}
+.payout-panel{display:flex;flex-direction:column;align-items:center;gap:5px;margin:16px auto 8px;padding:13px 16px;max-width:260px;border:1px solid #ffb36e55;background:linear-gradient(135deg,#3a2b1c77,#101820bb)}
+.payout-panel>span{font-size:8px;letter-spacing:.18em;color:#b9c3c6;font-weight:800}
+.payout-panel>strong{font:900 28px/1 ManusCC0,system-ui,sans-serif;color:#ffc184}
+.payout-panel>small{font-size:9px;letter-spacing:.12em;color:#aebbc0}
+.payout-panel>small b{color:#f5eee4;font-size:12px}
+@media(max-width:700px){.title-wallet{right:calc(18px + var(--safe-r));top:calc(15px + var(--safe-t));padding:7px 9px}.title-wallet b{font-size:15px}.payout-panel{margin:12px auto 5px;padding:10px 12px}.payout-panel>strong{font-size:24px}}
