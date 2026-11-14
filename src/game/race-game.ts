@@ -348,7 +348,12 @@ export class RaceGame {
     // Later in the run, occasional two-car waves leave one readable escape lane.
     const wanted = trafficWaveSize(this.elapsed, this.random())
     const spawnZ = -RACE_CONFIG.spawnDistance - this.random() * 18
-    const candidates = [0, 1, 2].sort(() => this.random() - 0.5)
+    // Fisher-Yates keeps lane selection unbiased and reproducible with the seeded RNG.
+    const candidates = [0, 1, 2]
+    for (let index = candidates.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(this.random() * (index + 1))
+      ;[candidates[index], candidates[swapIndex]] = [candidates[swapIndex], candidates[index]]
+    }
     const clearLanes = candidates.filter(lane => !this.traffic.some(car =>
       car.active && car.lane === lane && Math.abs(car.root.position.z - spawnZ) < 22,
     ))
