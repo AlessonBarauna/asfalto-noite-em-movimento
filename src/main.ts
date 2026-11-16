@@ -247,6 +247,25 @@ async function boot(): Promise<void> {
 
   document.addEventListener('visibilitychange', () => { if (document.hidden) { pauseRun(); bankRun() } })
   window.addEventListener('pagehide', bankRun)
+  // Garagem: arraste para girar o carro, roda do mouse/pinça para zoom, duplo clique restaura a vista.
+  let orbit: { id: number; x: number; y: number } | null = null
+  const inGarageView = (target: EventTarget | null) => ui.screen === 'garage' && !(target as HTMLElement | null)?.closest?.('.garage-modal, button, input')
+  window.addEventListener('pointerdown', event => {
+    if (!inGarageView(event.target)) return
+    orbit = { id: event.pointerId, x: event.clientX, y: event.clientY }
+  })
+  window.addEventListener('pointermove', event => {
+    if (!orbit || event.pointerId !== orbit.id) return
+    currentGame.garageOrbit(event.clientX - orbit.x, event.clientY - orbit.y)
+    orbit.x = event.clientX
+    orbit.y = event.clientY
+  })
+  const endOrbit = (event: PointerEvent) => { if (orbit && event.pointerId === orbit.id) orbit = null }
+  window.addEventListener('pointerup', endOrbit)
+  window.addEventListener('pointercancel', endOrbit)
+  window.addEventListener('wheel', event => { if (inGarageView(event.target)) currentGame.garageZoom(event.deltaY) }, { passive: true })
+  window.addEventListener('dblclick', event => { if (inGarageView(event.target)) currentGame.resetGarageView() })
+  window.addEventListener('keydown', event => { if (event.code === 'Escape' && (ui.screen === 'garage' || ui.screen === 'leaderboard')) ui.goBack() })
   window.addEventListener('game:pause', pauseRun)
   ;(window as unknown as { __game: unknown }).__game = { game: currentGame, ui, input, save }
 }

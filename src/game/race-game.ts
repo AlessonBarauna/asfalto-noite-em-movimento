@@ -82,7 +82,9 @@ export class RaceGame {
   private jumpV = 0
   private jumpCooldown = 0
   private lastLevel = 1
-  private garageAngle = 0.6
+  private garageYaw = 0.6
+  private garagePitch = 0.2
+  private garageDist = 8.2
 
   constructor(
     private readonly renderer: Renderer,
@@ -145,8 +147,24 @@ export class RaceGame {
   setGarageView(on: boolean): void {
     if (on === this.garageView) return
     this.garageView = on
-    if (on) this.garageAngle = 0.6
+    if (on) this.resetGarageView()
     else this.camera.clearViewOffset()
+  }
+
+  resetGarageView(): void {
+    this.garageYaw = 0.6
+    this.garagePitch = 0.2
+    this.garageDist = 8.2
+  }
+
+  /** Arrasto do mouse/dedo: gira em volta do carro e inclina a câmera (sem rotação automática). */
+  garageOrbit(dx: number, dy: number): void {
+    this.garageYaw -= dx * 0.0085
+    this.garagePitch = THREE.MathUtils.clamp(this.garagePitch + dy * 0.006, -0.05, 1.0)
+  }
+
+  garageZoom(delta: number): void {
+    this.garageDist = THREE.MathUtils.clamp(this.garageDist * Math.exp(delta * 0.0012), 4.2, 14)
   }
 
   setScenario(id: ScenarioId): void {
@@ -306,7 +324,6 @@ export class RaceGame {
       this.camera.updateProjectionMatrix()
     }
     if (this.garageView) {
-      this.garageAngle += dt * 0.32
       const w = window.innerWidth
       const h = window.innerHeight
       if (w > 760) this.camera.setViewOffset(w, h, -w * 0.17, 0, w, h)
@@ -315,7 +332,8 @@ export class RaceGame {
       this.camera.updateProjectionMatrix()
       const cx = this.x
       const cz = RACE_CONFIG.playerZ
-      this.camera.position.set(cx + Math.sin(this.garageAngle) * 8.2, 1.7 + Math.sin(this.garageAngle * 0.6) * 0.35, cz + Math.cos(this.garageAngle) * 8.2)
+      const flat = Math.cos(this.garagePitch) * this.garageDist
+      this.camera.position.set(cx + Math.sin(this.garageYaw) * flat, 0.75 + Math.sin(this.garagePitch) * this.garageDist, cz + Math.cos(this.garageYaw) * flat)
       this.camera.lookAt(cx, 0.75, cz)
       this.world.animate(dt, 0)
       this.effects.update(dt)
