@@ -46,3 +46,35 @@ describe('regras da corrida de tráfego', () => {
     expect(intense.speedFactor).toBeGreaterThan(calm.speedFactor)
   })
 })
+
+import { cruiseSpeed, levelForDistance, trafficDifficultyByDistance, trafficWaveSizeByDistance } from '../src/game/race-rules'
+
+describe('progressão por distância', () => {
+  it('começa lento e acelera sem teto', () => {
+    expect(cruiseSpeed(0)).toBeLessThan(RACE_CONFIG.startSpeed)
+    expect(cruiseSpeed(5000)).toBeGreaterThan(cruiseSpeed(1000))
+    expect(cruiseSpeed(100_000)).toBeGreaterThan(cruiseSpeed(20_000))
+    expect(cruiseSpeed(-5)).toBe(cruiseSpeed(0))
+  })
+
+  it('aumenta o nível a cada 600 m', () => {
+    expect(levelForDistance(0)).toBe(1)
+    expect(levelForDistance(599)).toBe(1)
+    expect(levelForDistance(600)).toBe(2)
+    expect(levelForDistance(Number.NaN)).toBe(1)
+  })
+
+  it('o tráfego fica mais denso e rápido, com piso no intervalo', () => {
+    const early = trafficDifficultyByDistance(0)
+    const late = trafficDifficultyByDistance(30_000)
+    expect(late.interval).toBeLessThan(early.interval)
+    expect(late.interval).toBeGreaterThanOrEqual(0.34)
+    expect(late.speedFactor).toBeGreaterThan(early.speedFactor)
+  })
+
+  it('só libera ondas de dois carros depois de 250 m', () => {
+    expect(trafficWaveSizeByDistance(100, 0)).toBe(1)
+    expect(trafficWaveSizeByDistance(2000, 0.1)).toBe(2)
+    expect(trafficWaveSizeByDistance(2000, 0.99)).toBe(1)
+  })
+})

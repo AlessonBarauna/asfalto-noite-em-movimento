@@ -59,7 +59,7 @@ const CinematicShader = {
       col = mix(col, col * vec3(1.08, 1.0, 0.9), smoothstep(0.35, 1.2, l) * 0.35);
       // vignette (+ red flash on impact)
       float vig = smoothstep(0.95, 0.28, r);
-      col *= mix(0.55, 1.0, vig);
+      col *= mix(0.45, 1.0, vig);
       col = mix(col, col * vec3(1.5, 0.55, 0.5), uHit * (1.0 - vig) * 0.9);
       // film grain
       col += (hash(vUv * 1500.0) - 0.5) * 0.013;
@@ -87,7 +87,7 @@ export class Renderer {
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: this.preset.antialias, powerPreference: 'high-performance' })
     this.gl.outputColorSpace = THREE.SRGBColorSpace
     this.gl.toneMapping = THREE.ACESFilmicToneMapping
-    this.gl.toneMappingExposure = 1.15
+    this.gl.toneMappingExposure = 0.92
     this.gl.shadowMap.type = THREE.PCFSoftShadowMap
     this.applyQuality(quality)
     window.addEventListener('resize', () => this.resize())
@@ -135,7 +135,7 @@ export class Renderer {
     this.composer.setPixelRatio(pr)
     this.composer.addPass(new RenderPass(scene, camera))
     if (this.preset.bloom) {
-      this.bloom = new UnrealBloomPass(size, 0.55, 0.55, 0.82)
+      this.bloom = new UnrealBloomPass(size, 0.28, 0.45, 0.92)
       this.composer.addPass(this.bloom)
     }
     if (this.preset.fx) {

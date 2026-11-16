@@ -41,6 +41,9 @@ export type SaveData = {
   credits: number
   lifetimeCredits: number
   completedRuns: number
+  scenario: string
+  bestDistance: number
+  totalDistance: number
   leaderboard: ScoreEntry[]
 }
 
@@ -80,6 +83,9 @@ export function defaultSave(): SaveData {
     unlockedVehicles: ['gol-g5', 'supercar'],
     credits: 0,
     lifetimeCredits: 0,
+    scenario: 'cidade',
+    bestDistance: 0,
+    totalDistance: 0,
     completedRuns: 0,
     leaderboard: [],
   }
@@ -171,6 +177,9 @@ export function parseSave(raw: string | null): SaveData {
     credits: Number.isFinite(data.credits) ? Math.max(0, Math.floor(data.credits as number)) : base.credits,
     lifetimeCredits: Number.isFinite(data.lifetimeCredits) ? Math.max(0, Math.floor(data.lifetimeCredits as number)) : base.lifetimeCredits,
     completedRuns: Number.isFinite(data.completedRuns) ? Math.max(0, Math.floor(data.completedRuns as number)) : base.completedRuns,
+    scenario: data.scenario === 'serra' || data.scenario === 'deserto' ? data.scenario : 'cidade',
+    bestDistance: Number.isFinite(data.bestDistance) ? Math.max(0, data.bestDistance as number) : 0,
+    totalDistance: Number.isFinite(data.totalDistance) ? Math.max(0, data.totalDistance as number) : 0,
     leaderboard: board
       .filter((e): e is ScoreEntry => !!e && typeof e === 'object' && typeof (e as ScoreEntry).name === 'string' && Number.isFinite((e as ScoreEntry).score))
       .map(e => ({ name: e.name.slice(0, 16), score: Math.max(0, Math.floor(e.score)), seconds: Number.isFinite(e.seconds) ? e.seconds : 0, at: Number.isFinite(e.at) ? e.at : 0 }))
