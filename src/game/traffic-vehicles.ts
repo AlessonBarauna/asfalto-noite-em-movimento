@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import type { TrafficKind } from './race-rules'
 
 export type BrazilianTrafficModel =
@@ -41,7 +42,7 @@ export const BRAZILIAN_TRAFFIC_MODELS: readonly BrazilianTrafficSpec[] = [
 const DARK = new THREE.MeshStandardMaterial({ color: '#171c20', roughness: 0.58, metalness: 0.25 })
 const RUBBER = new THREE.MeshStandardMaterial({ color: '#101316', roughness: 0.94 })
 const ALLOY = new THREE.MeshStandardMaterial({ color: '#aeb8bd', metalness: 0.86, roughness: 0.23 })
-const GLASS = new THREE.MeshPhysicalMaterial({ color: '#172a36', metalness: 0.16, roughness: 0.17, clearcoat: 0.8, transparent: true, opacity: 0.94 })
+const GLASS = new THREE.MeshPhysicalMaterial({ color: '#1a2d3b', metalness: 0.5, roughness: 0.07, clearcoat: 1, envMapIntensity: 2.2, transparent: true, opacity: 0.96 })
 const HEADLIGHT = new THREE.MeshStandardMaterial({ color: '#fff4d9', emissive: '#ffe4b0', emissiveIntensity: 2.4 })
 const TAILLIGHT = new THREE.MeshStandardMaterial({ color: '#8d201c', emissive: '#f32c24', emissiveIntensity: 2.1 })
 const CHROME = new THREE.MeshStandardMaterial({ color: '#b8c0c3', metalness: 0.9, roughness: 0.2 })
@@ -54,21 +55,15 @@ function box(
   material: THREE.Material,
   bevel = false,
 ): THREE.Mesh {
-  const geometry = new THREE.BoxGeometry(...size)
+  // Beveled parts get soft, light-catching edges instead of hard box corners.
+  const radius = bevel ? Math.min(0.1, Math.min(...size) * 0.42) : 0
+  const geometry = radius > 0.012 ? new RoundedBoxGeometry(size[0], size[1], size[2], 3, radius) : new THREE.BoxGeometry(...size)
   const mesh = new THREE.Mesh(geometry, material)
   mesh.name = name
   mesh.position.set(...position)
   mesh.castShadow = true
   mesh.receiveShadow = true
   parent.add(mesh)
-  if (bevel) {
-    const edge = new THREE.LineSegments(
-      new THREE.EdgesGeometry(geometry),
-      new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.045 }),
-    )
-    edge.position.copy(mesh.position)
-    parent.add(edge)
-  }
   return mesh
 }
 
@@ -93,7 +88,7 @@ export function createBrazilianTrafficVehicle(
   car.add(body, cabin, details, wheels)
 
   const paintMaterial = new THREE.MeshPhysicalMaterial({
-    color: paint, metalness: 0.66, roughness: 0.25, clearcoat: 0.92, clearcoatRoughness: 0.14,
+    color: paint, metalness: 0.55, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 1.5,
   })
   const width = spec.width
   const length = spec.length
