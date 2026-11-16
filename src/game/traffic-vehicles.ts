@@ -49,6 +49,7 @@ const HEADLIGHT = new THREE.MeshStandardMaterial({ color: '#fff4d9', emissive: '
 const FOG = new THREE.MeshStandardMaterial({ color: '#fff8e8', emissive: '#ffe9c0', emissiveIntensity: 1.1 })
 const TAILLIGHT = new THREE.MeshStandardMaterial({ color: '#8d201c', emissive: '#f32c24', emissiveIntensity: 2.1 })
 const CHROME = new THREE.MeshStandardMaterial({ color: '#b8c0c3', metalness: 0.92, roughness: 0.18 })
+const AMBER = new THREE.MeshStandardMaterial({ color: '#d98a1c', emissive: '#ff9a1f', emissiveIntensity: 0.9 })
 const GOLD = new THREE.MeshStandardMaterial({ color: '#c9a24b', metalness: 0.9, roughness: 0.28 })
 
 /** Front-end styling that tells the models apart from the front, which is what the player sees. */
@@ -343,6 +344,16 @@ export function createBrazilianTrafficVehicle(
       drl.rotation.z = lamp.rotation.z
     }
 
+    // projector cup inside each headlamp and an amber indicator beside it add depth head-on
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(lampH * 0.3, lampH * 0.3, 0.02, 14), TRIM)
+    cup.name = `traffic-headlight-cup-${side}`
+    cup.rotation.x = Math.PI / 2
+    cup.position.set(lamp.position.x + side * lampW * 0.12, lamp.position.y, headZ + 0.035)
+    details.add(cup)
+    box(details, `traffic-indicator-${side}`, [lampW * 0.28, lampH * 0.7, 0.04], [lamp.position.x + side * (lampW * 0.62), lamp.position.y - lampH * 0.1, headZ - 0.004], AMBER, true)
+    // reverse lamp and reflector complete the tail cluster
+    box(details, `traffic-reverse-lamp-${side}`, [width * 0.05, 0.06, 0.062], [side * width * 0.31, lowerY * 0.97 - 0.12, rear - 0.034], FOG)
+    box(details, `traffic-rear-reflector-${side}`, [0.1, 0.03, 0.03], [side * width * 0.36, 0.33, rear - 0.05], TAILLIGHT)
     // tail lamps wrap around the corners and sit under the tail edge
     box(details, `traffic-taillight-${side}`, [width * 0.15, 0.22, 0.06], [side * width * 0.37, lowerY * 0.97 - 0.05, rear - 0.03], TAILLIGHT, true)
     if (!isVan) {
@@ -352,6 +363,18 @@ export function createBrazilianTrafficVehicle(
     }
   }
   box(details, 'traffic-rear-plate', [0.42, 0.11, 0.025], [0, 0.5, rear - 0.06], CHROME)
+  // rear details: exhaust tip, badge, and on hatches a high brake light and rear wiper
+  const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.14, 12), CHROME)
+  exhaust.name = 'traffic-exhaust'
+  exhaust.rotation.x = Math.PI / 2
+  exhaust.position.set(-width * 0.3, 0.26, rear - 0.04)
+  details.add(exhaust)
+  box(details, 'traffic-rear-badge', [0.18, 0.04, 0.02], [0, lowerY * 0.97 - 0.06, rear - 0.045], CHROME)
+  if (!isVan && !isPickup) {
+    const roofRear = roofRearZ(spec)
+    box(details, 'traffic-high-brake-light', [0.34, 0.035, 0.03], [0, roofY - 0.1, roofRear - 0.07], TAILLIGHT)
+    box(details, 'traffic-rear-wiper', [0.012, 0.012, 0.3], [0, lowerY + 0.16, rear + 0.2], TRIM)
+  }
   const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.32, 6), TRIM)
   antenna.position.set(halfWidth * 0.5, roofY + 0.14, cabinZ - 0.4)
   antenna.rotation.z = -0.3
