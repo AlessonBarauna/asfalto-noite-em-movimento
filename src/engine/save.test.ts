@@ -14,7 +14,7 @@ describe('versioned save and vehicle unlock migration', () => {
     expect(save.version).toBe(8)
     expect(save.playerVehicle).toBe('saveiro')
     expect(save.unlockedVehicles).toContain('saveiro')
-    expect(save.unlockedVehicles).toHaveLength(9)
+    expect(save.unlockedVehicles).toHaveLength(10)
     expect(save.credits).toBe(250)
   })
 

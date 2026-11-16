@@ -3,10 +3,10 @@ import { Audio } from './engine/audio'
 import { Input } from './engine/input'
 import { GameLoop } from './engine/loop'
 import { Renderer, suggestQuality } from './engine/renderer'
-import { SAVE_KEY, SaveStore, insertScore } from './engine/save'
+import { SAVE_KEY, SaveStore, insertScore, type PlayerVehicleId } from './engine/save'
+import { preloadSupercar } from './game/supercar'
 import { RaceGame, type RaceResult } from './game/race-game'
 import { calculateRacePayout, purchaseVehicle as buyVehicle, purchasePaint as buyPaint, purchaseWheels as buyWheels, purchaseTint as buyTint, purchaseSpoiler as buySpoiler, purchaseSuspension as buySuspension, purchaseExhaust as buyExhaust, purchaseHeadlights as buyHeadlights } from './game/economy'
-import type { BrazilianTrafficModel } from './game/traffic-vehicles'
 import { tuning } from './game/tuning'
 import { TouchControls } from './ui/touch'
 import { RaceUI } from './ui/race-ui'
@@ -150,8 +150,9 @@ async function boot(): Promise<void> {
   engineSound = engine ?? undefined
 
   ui.setBootProgress(0.76, 'Preparando o trânsito…')
+  await preloadSupercar().catch(() => undefined) // optional: falls back to the procedural Gol if it cannot load
   const renderer = new Renderer(canvas, save.data.quality)
-  game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound, playerVehicle: save.data.playerVehicle as BrazilianTrafficModel, playerPaint: save.data.playerPaint, playerWheels: save.data.playerWheels, playerTint: save.data.playerTint, playerSpoiler: save.data.playerSpoiler, playerSuspension: save.data.playerSuspension, playerExhaust: save.data.playerExhaust, playerHeadlights: save.data.playerHeadlights })
+  game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound, playerVehicle: save.data.playerVehicle as PlayerVehicleId, playerPaint: save.data.playerPaint, playerWheels: save.data.playerWheels, playerTint: save.data.playerTint, playerSpoiler: save.data.playerSpoiler, playerSuspension: save.data.playerSuspension, playerExhaust: save.data.playerExhaust, playerHeadlights: save.data.playerHeadlights })
   if (import.meta.env.DEV) {
     const [{ registerGameTuning }] = await Promise.all([import('../scripts/manus-tuning/adapter.js')])
     void registerGameTuning(tuning)

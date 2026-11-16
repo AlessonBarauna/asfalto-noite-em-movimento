@@ -7,10 +7,12 @@ import { calculateScore, clampSteering, hasTrafficSpawnGap, laneCenter, trafficD
 import type { TrafficKind } from './race-rules'
 import { RaceWorld } from './race-world'
 import { createGolG5Model } from './gol-g5'
-import { BRAZILIAN_TRAFFIC_MODELS, createBrazilianTrafficVehicle, type BrazilianTrafficModel } from './traffic-vehicles'
+import { BRAZILIAN_TRAFFIC_MODELS, createBrazilianTrafficVehicle } from './traffic-vehicles'
 import { tuning } from './tuning'
 import { applyGarageVisuals } from './garage-visuals'
 import { Effects } from './fx'
+import { createSupercar, loadedSupercar } from './supercar'
+import type { PlayerVehicleId } from '../engine/save'
 import { glowTexture, streakTexture } from './visuals/textures'
 
 export type RaceSnapshot = {
@@ -70,15 +72,14 @@ export class RaceGame {
     private readonly renderer: Renderer,
     private readonly input: Input,
     private readonly audio: Audio,
-    sounds: { crash?: AudioBuffer; engine?: AudioBuffer; playerVehicle?: BrazilianTrafficModel; playerPaint?: string; playerWheels?: string; playerTint?: string; playerSpoiler?: string; playerSuspension?: string; playerExhaust?: string; playerHeadlights?: string } = {},
+    sounds: { crash?: AudioBuffer; engine?: AudioBuffer; playerVehicle?: PlayerVehicleId; playerPaint?: string; playerWheels?: string; playerTint?: string; playerSpoiler?: string; playerSuspension?: string; playerExhaust?: string; playerHeadlights?: string } = {},
   ) {
     this.world = new RaceWorld(renderer.gl, renderer.shadowMapSize)
     this.crashBuffer = sounds.crash
     this.engineBuffer = sounds.engine
     this.world.scene.add(this.player)
     this.player.add(this.playerVisual)
-    const initialCar = sounds.playerVehicle && sounds.playerVehicle !== 'gol-g5' ? createBrazilianTrafficVehicle(sounds.playerVehicle, sounds.playerPaint ?? PLAYER_PAINT) : createGolG5Model(sounds.playerPaint ?? PLAYER_PAINT)
-    applyGarageVisuals(initialCar, sounds.playerWheels ?? 'alloy', sounds.playerTint ?? 'smoke', sounds.playerSpoiler ?? 'none', sounds.playerSuspension ?? 'stock', sounds.playerExhaust ?? 'stock', sounds.playerHeadlights ?? 'halogen')
+    const initialCar = this.buildPlayerCar(sounds.playerVehicle ?? 'gol-g5', sounds.playerPaint ?? PLAYER_PAINT, sounds.playerWheels ?? 'alloy', sounds.playerTint ?? 'smoke', sounds.playerSpoiler ?? 'none', sounds.playerSuspension ?? 'stock', sounds.playerExhaust ?? 'stock', sounds.playerHeadlights ?? 'halogen')
     this.playerVisual.add(initialCar)
     this.player.rotation.y = Math.PI // The player car faces +Z; rotate it toward the road's -Z direction.
     this.player.position.set(0, 0.02, RACE_CONFIG.playerZ)
@@ -91,11 +92,25 @@ export class RaceGame {
     this.camera.lookAt(0, 1.2, -19)
   }
 
-  setPlayerVehicle(model: BrazilianTrafficModel, paint = '#4a5052', wheels = 'alloy', tint = 'smoke', spoiler = 'none', suspension = 'stock', exhaust = 'stock', headlights = 'halogen'): void {
-    this.playerVisual.clear()
-    const car = model === 'gol-g5' ? createGolG5Model(paint) : createBrazilianTrafficVehicle(model, paint)
+  private playerWheels: THREE.Object3D[] = []
+  private wheelSpin = 0
+
+  private buildPlayerCar(model: PlayerVehicleId, paint: THREE.ColorRepresentation, wheels: string, tint: string, spoiler: string, suspension: string, exhaust: string, headlights: string): THREE.Group {
+    this.playerWheels = []
+    const template = model === 'supercar' ? loadedSupercar() : undefined
+    if (template) {
+      const car = createSupercar(template, paint)
+      this.playerWheels = car.wheels
+      return car.group
+    }
+    const car = model === 'gol-g5' || model === 'supercar' ? createGolG5Model(paint) : createBrazilianTrafficVehicle(model, paint)
     applyGarageVisuals(car, wheels, tint, spoiler, suspension, exhaust, headlights)
-    this.playerVisual.add(car)
+    return car
+  }
+
+  setPlayerVehicle(model: PlayerVehicleId, paint = '#4a5052', wheels = 'alloy', tint = 'smoke', spoiler = 'none', suspension = 'stock', exhaust = 'stock', headlights = 'halogen'): void {
+    this.playerVisual.clear()
+    this.playerVisual.add(this.buildPlayerCar(model, paint, wheels, tint, spoiler, suspension, exhaust, headlights))
   }
 
   setRain(on: boolean): void {
@@ -220,6 +235,8 @@ export class RaceGame {
       RACE_CONFIG.playerZ + 12.6 + this.hitShake - speed01 * 0.5,
     )
     this.camera.lookAt(this.cameraX * 0.65, 1.05, -21)
+    this.wheelSpin += (this.mode === 'title' ? 0 : this.speed) * dt / 0.35
+    for (const w of this.playerWheels) w.rotation.x = this.wheelSpin
     this.world.animate(dt, this.mode === 'title' ? 14 : this.speed)
     this.effects.update(dt)
     this.updateCarLights(boosting)

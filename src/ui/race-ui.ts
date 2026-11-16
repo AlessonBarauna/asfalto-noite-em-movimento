@@ -1,7 +1,8 @@
 import copy from '../i18n/pt-BR.json'
 import type { PlayerVehicleId, ScoreEntry } from '../engine/save'
 import { PAINT_OPTIONS, VEHICLE_PRICES, WHEEL_OPTIONS, TINT_OPTIONS, SPOILER_OPTIONS, SUSPENSION_OPTIONS, EXHAUST_OPTIONS, HEADLIGHT_OPTIONS } from '../game/economy'
-import { BRAZILIAN_TRAFFIC_MODELS, type BrazilianTrafficModel } from '../game/traffic-vehicles'
+import { BRAZILIAN_TRAFFIC_MODELS } from '../game/traffic-vehicles'
+import { SUPERCAR } from '../game/supercar'
 
 export type RaceUiState = {
   score: number
@@ -21,8 +22,8 @@ export type RaceUiActions = {
   restart(): void
   toTitle(): void
   openLeaderboard(): void
-  selectVehicle(model: BrazilianTrafficModel): void
-  purchaseVehicle(model: BrazilianTrafficModel): boolean
+  selectVehicle(model: PlayerVehicleId): void
+  purchaseVehicle(model: PlayerVehicleId): boolean
   selectPaint(paint: string): void
   purchasePaint(paint: string): boolean
   selectWheels(id: string): void
@@ -100,15 +101,16 @@ export class RaceUI {
     this.show('title')
   }
 
-  showGarage(selected: BrazilianTrafficModel, unlocked: PlayerVehicleId[] = ['gol-g5'], credits = 0, selectedPaint = '#4a5052', unlockedPaints: string[] = ['#4a5052'], selectedWheels = 'alloy', unlockedWheels: string[] = ['alloy'], selectedTint = 'smoke', unlockedTints: string[] = ['smoke'], selectedSpoiler = 'none', unlockedSpoilers: string[] = ['none'], selectedSuspension = 'stock', unlockedSuspensions: string[] = ['stock'], selectedExhaust = 'stock', unlockedExhausts: string[] = ['stock'], selectedHeadlights = 'halogen', unlockedHeadlights: string[] = ['halogen']): void {
+  showGarage(selected: PlayerVehicleId, unlocked: PlayerVehicleId[] = ['gol-g5'], credits = 0, selectedPaint = '#4a5052', unlockedPaints: string[] = ['#4a5052'], selectedWheels = 'alloy', unlockedWheels: string[] = ['alloy'], selectedTint = 'smoke', unlockedTints: string[] = ['smoke'], selectedSpoiler = 'none', unlockedSpoilers: string[] = ['none'], selectedSuspension = 'stock', unlockedSuspensions: string[] = ['stock'], selectedExhaust = 'stock', unlockedExhausts: string[] = ['stock'], selectedHeadlights = 'halogen', unlockedHeadlights: string[] = ['halogen']): void {
     if (this.screen !== 'garage') this.returnAfterGarage = this.screen === 'pause' ? 'pause' : 'title'
     this.set('.garage-balance', credits.toLocaleString('pt-BR'))
     const grid = this.root.querySelector<HTMLElement>('.garage-grid')
     if (grid) {
-      grid.innerHTML = BRAZILIAN_TRAFFIC_MODELS.map(model => {
+      const premium = [{ id: SUPERCAR.id, label: SUPERCAR.label, utility: undefined as string | undefined, premium: true }]
+      grid.innerHTML = [...BRAZILIAN_TRAFFIC_MODELS, ...premium].map(model => {
         const active = model.id === selected
         const owned = unlocked.includes(model.id)
-        const type = model.utility === 'pickup' ? 'PICAPE' : model.utility === 'van' ? 'UTILITÁRIO' : 'HATCH'
+        const type = 'premium' in model ? 'ESPORTIVO' : model.utility === 'pickup' ? 'PICAPE' : model.utility === 'van' ? 'UTILITÁRIO' : 'HATCH'
         const price = VEHICLE_PRICES[model.id as PlayerVehicleId]
         if (owned) {
           return '<button class="garage-car ' + (active ? 'is-selected' : '') + '" data-vehicle="' + model.id + '" aria-pressed="' + active + '"><span class="garage-car-type">' + type + '</span><strong>' + model.label + '</strong><small>' + (active ? 'EM USO' : 'SELECIONAR') + '</small></button>'
@@ -213,12 +215,12 @@ export class RaceUI {
     if (paint?.dataset.paint) { this.actions.selectPaint(paint.dataset.paint); return }
     const buy = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-buy-vehicle]')
     if (buy?.dataset.buyVehicle) {
-      this.actions.purchaseVehicle(buy.dataset.buyVehicle as BrazilianTrafficModel)
+      this.actions.purchaseVehicle(buy.dataset.buyVehicle as PlayerVehicleId)
       return
     }
     const vehicle = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-vehicle]')
     if (vehicle?.dataset.vehicle) {
-      this.actions.selectVehicle(vehicle.dataset.vehicle as BrazilianTrafficModel)
+      this.actions.selectVehicle(vehicle.dataset.vehicle as PlayerVehicleId)
       return
     }
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')
