@@ -1,7 +1,9 @@
 import copy from '../i18n/pt-BR.json'
 import type { PlayerVehicleId, ScoreEntry } from '../engine/save'
 import { PAINT_OPTIONS, VEHICLE_PRICES, WHEEL_OPTIONS, TINT_OPTIONS, SPOILER_OPTIONS, SUSPENSION_OPTIONS, EXHAUST_OPTIONS, HEADLIGHT_OPTIONS } from '../game/economy'
-import { BRAZILIAN_TRAFFIC_MODELS, type BrazilianTrafficModel } from '../game/traffic-vehicles'
+import { BRAZILIAN_TRAFFIC_MODELS } from '../game/traffic-vehicles'
+import { SUPERCAR } from '../game/supercar'
+import { SCENARIOS } from '../game/scenarios'
 
 export type RaceUiState = {
   score: number
@@ -21,8 +23,8 @@ export type RaceUiActions = {
   restart(): void
   toTitle(): void
   openLeaderboard(): void
-  selectVehicle(model: BrazilianTrafficModel): void
-  purchaseVehicle(model: BrazilianTrafficModel): boolean
+  selectVehicle(model: PlayerVehicleId): void
+  purchaseVehicle(model: PlayerVehicleId): boolean
   selectPaint(paint: string): void
   purchasePaint(paint: string): boolean
   selectWheels(id: string): void
@@ -38,6 +40,8 @@ export type RaceUiActions = {
   selectHeadlights(id: string): void
   purchaseHeadlights(id: string): boolean
   openGarage(): void
+  selectScenario(id: string): void
+  setSensitivity(value: number): void
 }
 
 export class RaceUI {
@@ -50,6 +54,10 @@ export class RaceUI {
     this.root = root
     this.root.innerHTML = this.template()
     this.root.addEventListener('click', event => this.onClick(event))
+    this.root.addEventListener('input', event => {
+      const el = event.target
+      if (el instanceof HTMLInputElement && el.classList.contains('sens-slider')) this.actions.setSensitivity(Number(el.value))
+    })
     this.root.addEventListener('change', event => {
       const input = event.target
       if (!(input instanceof HTMLInputElement) || !input.classList.contains('driver-name')) return
@@ -100,15 +108,16 @@ export class RaceUI {
     this.show('title')
   }
 
-  showGarage(selected: BrazilianTrafficModel, unlocked: PlayerVehicleId[] = ['gol-g5'], credits = 0, selectedPaint = '#4a5052', unlockedPaints: string[] = ['#4a5052'], selectedWheels = 'alloy', unlockedWheels: string[] = ['alloy'], selectedTint = 'smoke', unlockedTints: string[] = ['smoke'], selectedSpoiler = 'none', unlockedSpoilers: string[] = ['none'], selectedSuspension = 'stock', unlockedSuspensions: string[] = ['stock'], selectedExhaust = 'stock', unlockedExhausts: string[] = ['stock'], selectedHeadlights = 'halogen', unlockedHeadlights: string[] = ['halogen']): void {
+  showGarage(selected: PlayerVehicleId, unlocked: PlayerVehicleId[] = ['gol-g5'], credits = 0, selectedPaint = '#4a5052', unlockedPaints: string[] = ['#4a5052'], selectedWheels = 'alloy', unlockedWheels: string[] = ['alloy'], selectedTint = 'smoke', unlockedTints: string[] = ['smoke'], selectedSpoiler = 'none', unlockedSpoilers: string[] = ['none'], selectedSuspension = 'stock', unlockedSuspensions: string[] = ['stock'], selectedExhaust = 'stock', unlockedExhausts: string[] = ['stock'], selectedHeadlights = 'halogen', unlockedHeadlights: string[] = ['halogen']): void {
     if (this.screen !== 'garage') this.returnAfterGarage = this.screen === 'pause' ? 'pause' : 'title'
     this.set('.garage-balance', credits.toLocaleString('pt-BR'))
     const grid = this.root.querySelector<HTMLElement>('.garage-grid')
     if (grid) {
-      grid.innerHTML = BRAZILIAN_TRAFFIC_MODELS.map(model => {
+      const premium = [{ id: SUPERCAR.id, label: SUPERCAR.label, utility: undefined as string | undefined, premium: true }]
+      grid.innerHTML = [...BRAZILIAN_TRAFFIC_MODELS, ...premium].map(model => {
         const active = model.id === selected
         const owned = unlocked.includes(model.id)
-        const type = model.utility === 'pickup' ? 'PICAPE' : model.utility === 'van' ? 'UTILITÁRIO' : 'HATCH'
+        const type = 'premium' in model ? 'ESPORTIVO' : model.utility === 'pickup' ? 'PICAPE' : model.utility === 'van' ? 'UTILITÁRIO' : 'HATCH'
         const price = VEHICLE_PRICES[model.id as PlayerVehicleId]
         if (owned) {
           return '<button class="garage-car ' + (active ? 'is-selected' : '') + '" data-vehicle="' + model.id + '" aria-pressed="' + active + '"><span class="garage-car-type">' + type + '</span><strong>' + model.label + '</strong><small>' + (active ? 'EM USO' : 'SELECIONAR') + '</small></button>'
@@ -211,14 +220,16 @@ export class RaceUI {
     if (buyPaint?.dataset.buyPaint) { this.actions.purchasePaint(buyPaint.dataset.buyPaint); return }
     const paint = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-paint]')
     if (paint?.dataset.paint) { this.actions.selectPaint(paint.dataset.paint); return }
+    const scenario = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-scenario]')
+    if (scenario?.dataset.scenario) { this.actions.selectScenario(scenario.dataset.scenario); return }
     const buy = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-buy-vehicle]')
     if (buy?.dataset.buyVehicle) {
-      this.actions.purchaseVehicle(buy.dataset.buyVehicle as BrazilianTrafficModel)
+      this.actions.purchaseVehicle(buy.dataset.buyVehicle as PlayerVehicleId)
       return
     }
     const vehicle = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-vehicle]')
     if (vehicle?.dataset.vehicle) {
-      this.actions.selectVehicle(vehicle.dataset.vehicle as BrazilianTrafficModel)
+      this.actions.selectVehicle(vehicle.dataset.vehicle as PlayerVehicleId)
       return
     }
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')
@@ -234,6 +245,26 @@ export class RaceUI {
       case 'garage-back': this.show(this.returnAfterGarage); break
       case 'back': this.show(this.returnAfterBoard); break
     }
+  }
+
+  /** Highlights the chosen scenario on the title screen. */
+  setScenario(id: string): void {
+    this.root.querySelectorAll<HTMLElement>('[data-scenario]').forEach(btn => {
+      const on = btn.dataset.scenario === id
+      btn.classList.toggle('is-selected', on)
+      btn.setAttribute('aria-pressed', String(on))
+    })
+  }
+
+  /** Keeps every sensitivity slider (title and pause) in sync. */
+  setSensitivity(value: number): void {
+    this.root.querySelectorAll<HTMLInputElement>('.sens-slider').forEach(el => { if (Number(el.value) !== value) el.value = String(value) })
+    this.root.querySelectorAll<HTMLElement>('.sens-value').forEach(el => { el.textContent = value.toFixed(2).replace(/0$/, '') + '×' })
+  }
+
+  setDistanceStats(bestMeters: number, totalMeters: number): void {
+    this.set('.title-dist-value', (bestMeters / 1000).toFixed(2).replace('.', ',') + ' km')
+    this.set('.title-total-value', (totalMeters / 1000).toFixed(1).replace('.', ',') + ' km')
   }
 
   private set(selector: string, value: string): void {
@@ -253,9 +284,11 @@ export class RaceUI {
   <div class="title-panel"><div class="eyebrow">${copy['game.kicker']}</div><h1 class="game-wordmark">AS<span>FAL</span>TO</h1>
     <p class="title-copy">Uma noite. Três faixas. Tráfego sem fim. Desvie dos carros, acelere quando abrir espaço e veja até onde a cidade te leva.</p>
     <label class="pilot-input"><span>NOME NO PLACAR</span><input class="driver-name" name="pilot" type="text" maxlength="16" value="PILOTO" autocomplete="nickname" aria-label="Nome do piloto no placar" /></label>
+    <div class="scenario-picker"><span>CENÁRIO</span><div class="scenario-row">${SCENARIOS.map(s => `<button class="scenario-btn" data-scenario="${s.id}" aria-pressed="false"><b>${s.label}</b><small>${s.blurb}</small></button>`).join('')}</div></div>
+    <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
     <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
   </div>
-  <div class="title-wallet">SALDO <b><span class="wallet-balance">0</span> CR</b></div><div class="title-best">RECORDE LOCAL <b class="title-best-value">0</b></div>
+  <div class="title-wallet">SALDO <b><span class="wallet-balance">0</span> CR</b></div><div class="title-best">RECORDE LOCAL <b class="title-best-value">0</b><span class="title-sub">MAIOR DISTÂNCIA <i class="title-dist-value">0 km</i></span><span class="title-sub">TOTAL RODADO <i class="title-total-value">0 km</i></span></div>
   <div class="title-foot">${copy['hint.keyboard']}</div>
 </section>
 <section class="screen screen-hud" data-screen="hud">
@@ -266,6 +299,7 @@ export class RaceUI {
   <div class="center-notice"></div>
 </section>
 <section class="screen screen-modal" data-screen="pause"><div class="modal"><div class="eyebrow">ASFALTO · PAUSA</div><h2>${copy['pause.title']}</h2><p>${copy['pause.subtitle']}</p>
+  <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
   <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="garage">GARAGEM</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
 <section class="screen screen-modal" data-screen="results"><div class="modal"><div class="eyebrow">ASFALTO · RESULTADO</div><h2>${copy['results.title']}</h2><div class="record-badge">${copy['results.best']}</div>

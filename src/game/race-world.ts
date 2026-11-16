@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import { RACE_CONFIG } from './race-config'
 import { Sky } from './visuals/sky'
 import { Rain } from './visuals/rain'
-import { buildNightEnvironment } from './visuals/environment'
+import { buildEnvironment } from './visuals/environment'
+import { SCENARIOS, scenarioById, type Scenario, type ScenarioId } from './scenarios'
 import { asphaltTextures, facadeStyle, gantrySignTexture, glowTexture, neonTexture, pavementTexture, shopfrontTexture, seeded, streakTexture, type FacadeStyle } from './visuals/textures'
 
 const ROAD_LENGTH = 408
@@ -38,38 +39,82 @@ export class RaceWorld {
   private readonly shopfronts = [1, 2, 3].map(n => shopfrontTexture(n * 13, ['#ffcf8a', '#ffe0b0', '#8fd8ff', '#ffb070']))
   private readonly random = seeded(186)
   private readonly moon: THREE.DirectionalLight
+  private readonly hemi: THREE.HemisphereLight
+  private readonly common = new THREE.Group()
+  private readonly city = new THREE.Group()
+  private readonly serra = new THREE.Group()
+  private readonly desert = new THREE.Group()
+  private target: THREE.Group = this.common
+  private current: Scenario = SCENARIOS[0]
+  private readonly envCache = new Map<ScenarioId, THREE.Texture>()
+  private readonly groundMat = new THREE.MeshStandardMaterial({ color: '#0c1015', roughness: 1, metalness: 0 })
+  private readonly fields: Array<(offset: number) => void> = []
   private clock = 0
   private scroll = 0
-  private postsApply?: (offset: number) => void
 
-  constructor(gl: THREE.WebGLRenderer, shadowMapSize = 1024) {
+  constructor(private readonly gl: THREE.WebGLRenderer, shadowMapSize = 1024) {
     this.scene.fog = new THREE.FogExp2('#1a1b26', 0.0062)
-    this.scene.environment = buildNightEnvironment(gl)
-    this.scene.environmentIntensity = 0.95
     this.scene.add(this.sky.mesh)
     this.facadeMaterials = this.facades.map(f => new THREE.MeshStandardMaterial({
-      color: '#ffffff', map: f.map, emissiveMap: f.emissive, emissive: '#ffffff', emissiveIntensity: 1.05, roughness: 0.62, metalness: 0.18,
+      color: '#ffffff', map: f.map, emissiveMap: f.emissive, emissive: '#ffffff', emissiveIntensity: 0.62, roughness: 0.62, metalness: 0.18,
     }))
 
-    this.scene.add(new THREE.HemisphereLight('#7f9bc4', '#1c1410', 0.62))
-    this.moon = new THREE.DirectionalLight('#9fb8e8', 1.15)
+    this.hemi = new THREE.HemisphereLight('#7f9bc4', '#1c1410', 0.42)
+    this.scene.add(this.hemi)
+    this.moon = new THREE.DirectionalLight('#9fb8e8', 0.85)
     this.moon.position.set(-16, 30, -8)
     this.moon.target.position.set(0, 0, -6)
     this.moon.castShadow = true
     this.moon.shadow.mapSize.set(shadowMapSize, shadowMapSize)
-    Object.assign(this.moon.shadow.camera, { left: -14, right: 14, top: 22, bottom: -22, near: 1, far: 90 })
+    Object.assign(this.moon.shadow.camera, { left: -14, right: 14, top: 22, bottom: -22, near: 1, far: 120 })
     this.moon.shadow.bias = -0.0004
     this.moon.shadow.normalBias = 0.03
     this.scene.add(this.moon, this.moon.target)
 
+    for (const g of [this.common, this.city, this.serra, this.desert]) this.scene.add(g)
+    this.target = this.city
     this.addSkyline()
-    this.addRoad()
     this.addSidewalks()
     this.addBuildings()
     this.addStreetLights()
+    this.target = this.common
+    this.addRoad()
     this.addGantries()
     this.addGuardPosts()
+    this.target = this.serra
+    this.addSerra()
+    this.target = this.desert
+    this.addDeserto()
     this.scene.add(this.rain.mesh)
+    this.setScenario('cidade')
+  }
+
+  get scenario(): Scenario {
+    return this.current
+  }
+
+  /** Swaps the whole look: dressing groups, sky, fog, lights and reflections. */
+  setScenario(id: ScenarioId): Scenario {
+    const sc = scenarioById(id)
+    this.current = sc
+    this.city.visible = sc.id === 'cidade'
+    this.serra.visible = sc.id === 'serra'
+    this.desert.visible = sc.id === 'deserto'
+    this.sky.setPalette(sc.sky)
+    this.hemi.color.set(sc.hemisphere.sky)
+    this.hemi.groundColor.set(sc.hemisphere.ground)
+    this.hemi.intensity = sc.hemisphere.intensity
+    this.moon.color.set(sc.key.color)
+    this.moon.intensity = sc.key.intensity
+    this.moon.position.set(...sc.key.position)
+    this.groundMat.color.set(sc.ground)
+    this.gl.toneMappingExposure = sc.exposure
+    let env = this.envCache.get(sc.id)
+    if (!env) { env = buildEnvironment(this.gl, sc); this.envCache.set(sc.id, env) }
+    this.scene.environment = env
+    this.scene.environmentIntensity = sc.envIntensity
+    this.setRain(sc.rain)
+    return sc
   }
 
   /** Fixed-step scrolling: road, markers and props rush toward the camera. */
@@ -86,7 +131,7 @@ export class RaceWorld {
       prop.root.position.z += deltaMeters
       if (prop.root.position.z > prop.wrapAt) prop.root.position.z -= prop.wrapBy
     }
-    this.postsApply?.(this.scroll)
+    for (const apply of this.fields) apply(this.scroll)
   }
 
   /** Per-frame, time-based visuals (sky twinkle, rain, beacons) that run even on the title screen. */
@@ -105,12 +150,13 @@ export class RaceWorld {
     this.scroll = 0
     this.markers.forEach((marker, index) => { marker.position.z = -14 - (index % 34) * 12 })
     for (const prop of this.props) prop.root.position.z = prop.homeZ
-    this.postsApply?.(0)
+    for (const apply of this.fields) apply(0)
   }
 
   setRain(on: boolean): void {
     this.rain.enabled = on
-    this.scene.fog = new THREE.FogExp2(on ? '#171a26' : '#1a1b26', on ? 0.0078 : 0.0062)
+    const f = this.current.fog
+    this.scene.fog = new THREE.FogExp2(f.color, on ? f.rainDensity : f.density)
   }
 
   private additive(color: string, opacity: number, map: THREE.Texture): THREE.MeshBasicMaterial {
@@ -132,7 +178,7 @@ export class RaceWorld {
       group.add(tower)
       if (i % 4 === 0) this.addBeacon(group, x, h + 1.2, z, 6)
     }
-    this.scene.add(group)
+    this.target.add(group)
   }
 
   private addBeacon(parent: THREE.Object3D, x: number, y: number, z: number, size: number): void {
@@ -163,11 +209,11 @@ export class RaceWorld {
   private addRoad(): void {
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(420, 1500),
-      new THREE.MeshStandardMaterial({ color: '#0c1015', roughness: 1, metalness: 0 }),
+      this.groundMat,
     )
     ground.rotation.x = -Math.PI / 2
     ground.position.set(0, -0.2, -620)
-    this.scene.add(ground)
+    this.target.add(ground)
 
     const { map, roughness, normal } = this.asphalt
     for (const t of [map, roughness, normal]) t.repeat.set((ROAD_HALF * 2) / ASPHALT_TILE, 1500 / ASPHALT_TILE)
@@ -180,7 +226,7 @@ export class RaceWorld {
     asphalt.rotation.x = -Math.PI / 2
     asphalt.position.set(0, -0.08, -620)
     asphalt.receiveShadow = true
-    this.scene.add(asphalt)
+    this.target.add(asphalt)
 
     // Reflective road studs add depth cues at speed without cluttering the driving lanes.
     const studMaterial = new THREE.MeshStandardMaterial({ color: '#ffd9a8', emissive: '#ffb066', emissiveIntensity: 1.6, roughness: 0.3 })
@@ -189,7 +235,7 @@ export class RaceWorld {
         const stud = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.34), studMaterial)
         stud.position.set(side * (ROAD_HALF - 0.42), 0.015, -12 - i * 11.5)
         this.markers.push(stud)
-        this.scene.add(stud)
+        this.target.add(stud)
       }
     }
 
@@ -198,7 +244,7 @@ export class RaceWorld {
     for (const side of [-1, 1]) {
       const edge = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.012, 1500), side === -1 ? edgeL : edgeR)
       edge.position.set(side * (ROAD_HALF - 0.14), -0.004, -620)
-      this.scene.add(edge)
+      this.target.add(edge)
     }
 
     const lineMat = new THREE.MeshStandardMaterial({ color: '#d6dad6', emissive: '#9aa29c', emissiveIntensity: 0.3, roughness: 0.5 })
@@ -208,7 +254,7 @@ export class RaceWorld {
         const dash = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.012, 4.2), i % 5 === 0 ? orangeMat : lineMat)
         dash.position.set(laneX, 0, -14 - i * 12)
         this.markers.push(dash)
-        this.scene.add(dash)
+        this.target.add(dash)
       }
     }
   }
@@ -221,10 +267,10 @@ export class RaceWorld {
       const walk = new THREE.Mesh(new THREE.BoxGeometry(SIDEWALK_W, 0.22, 1500), mat)
       walk.position.set(side * (ROAD_HALF + 0.3 + SIDEWALK_W / 2), 0.02, -620)
       walk.receiveShadow = true
-      this.scene.add(walk)
+      this.target.add(walk)
       const curb = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.26, 1500), curbMat)
       curb.position.set(side * (ROAD_HALF + 0.15), 0.03, -620)
-      this.scene.add(curb)
+      this.target.add(curb)
     }
   }
 
@@ -271,12 +317,12 @@ export class RaceWorld {
         const shopColors = ['#ffcf8a', '#ffe8c0', '#9fe3ff', '#ffb36b']
         const shop = new THREE.Mesh(
           new THREE.PlaneGeometry(depth * 0.9, 3.9),
-          new THREE.MeshBasicMaterial({ map: this.shopfronts[Math.floor(random() * this.shopfronts.length)], toneMapped: false, color: new THREE.Color(shopColors[Math.floor(random() * shopColors.length)]).lerp(new THREE.Color('#ffffff'), 0.4).multiplyScalar(0.95) }),
+          new THREE.MeshBasicMaterial({ map: this.shopfronts[Math.floor(random() * this.shopfronts.length)], toneMapped: false, color: new THREE.Color(shopColors[Math.floor(random() * shopColors.length)]).lerp(new THREE.Color('#ffffff'), 0.4).multiplyScalar(0.6) }),
         )
         shop.position.set(faceX - side * 0.02, 2.1, 0)
         shop.rotation.y = side === 1 ? -Math.PI / 2 : Math.PI / 2
         root.add(shop)
-        const spill = new THREE.Mesh(new THREE.PlaneGeometry(10, depth * 0.9), this.additive('#ffb878', 0.2, this.glow))
+        const spill = new THREE.Mesh(new THREE.PlaneGeometry(10, depth * 0.9), this.additive('#ffb878', 0.09, this.glow))
         spill.rotation.x = -Math.PI / 2
         spill.position.set(faceX - side * 3.4, 0.16, 0)
         root.add(spill)
@@ -286,23 +332,23 @@ export class RaceWorld {
         // vertical neon blade sign
         if (i % 3 === 1) {
           const color = neonColors[(i + (side === 1 ? 2 : 0)) % neonColors.length]
-          const signMat = new THREE.MeshBasicMaterial({ map: neonTexture(color, i * 7 + (side === 1 ? 3 : 0)), toneMapped: false, color: new THREE.Color('#ffffff').multiplyScalar(1.5) })
+          const signMat = new THREE.MeshBasicMaterial({ map: neonTexture(color, i * 7 + (side === 1 ? 3 : 0)), toneMapped: false, color: new THREE.Color('#ffffff').multiplyScalar(1.1) })
           const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 5.6), signMat)
           sign.position.set(faceX - side * 1.0, Math.min(height - 4, 9 + random() * 5), (random() - 0.5) * 8)
           sign.rotation.y = side === 1 ? -Math.PI / 2 : Math.PI / 2
           root.add(sign)
-          const halo = new THREE.Mesh(new THREE.PlaneGeometry(6, 9), this.additive(color, 0.28, this.glow))
+          const halo = new THREE.Mesh(new THREE.PlaneGeometry(6, 9), this.additive(color, 0.13, this.glow))
           halo.position.copy(sign.position)
           halo.position.x -= side * 0.1
           halo.rotation.y = sign.rotation.y
           root.add(halo)
-          const reflect = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 18), this.additive(color, 0.2, this.streak))
+          const reflect = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 18), this.additive(color, 0.12, this.streak))
           reflect.rotation.x = -Math.PI / 2
           reflect.position.set(side * (ROAD_HALF - 1.6), 0.012, sign.position.z + 8)
           root.add(reflect)
         }
         root.position.z = z
-        this.scene.add(root)
+        this.target.add(root)
         this.props.push({ root, homeZ: z, wrapAt: 40, wrapBy: count * spacing })
       }
     }
@@ -310,7 +356,7 @@ export class RaceWorld {
 
   private addStreetLights(): void {
     const poleMat = new THREE.MeshStandardMaterial({ color: '#2b343b', roughness: 0.5, metalness: 0.55 })
-    const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffe4b5').multiplyScalar(2.2), toneMapped: false })
+    const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffe4b5').multiplyScalar(1.5), toneMapped: false })
     const count = 10
     const spacing = 46
     for (let i = 0; i < count; i += 1) {
@@ -327,21 +373,21 @@ export class RaceWorld {
         head.position.set(-side * 2.55, 7.08, 0)
         root.add(head)
         const lampX = -side * 2.55
-        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#ffc27a', transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
-        halo.scale.setScalar(6.5)
+        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#ffc27a', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
+        halo.scale.setScalar(4.2)
         halo.position.set(lampX, 7.0, 0)
         root.add(halo)
-        const pool = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), this.additive('#ffb06a', 0.55, this.glow))
+        const pool = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), this.additive('#ffb06a', 0.34, this.glow))
         pool.rotation.x = -Math.PI / 2
         pool.position.set(lampX, 0.02, 0)
         root.add(pool)
-        const reflect = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 26), this.additive('#ffc788', 0.42, this.streak))
+        const reflect = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 26), this.additive('#ffc788', 0.26, this.streak))
         reflect.rotation.x = -Math.PI / 2
         reflect.position.set(lampX * 0.55, 0.018, 12.5)
         root.add(reflect)
         const z = -18 - i * spacing
         root.position.set(side * (ROAD_HALF + 1.6), 0, z)
-        this.scene.add(root)
+        this.target.add(root)
         this.props.push({ root, homeZ: z, wrapAt: 40, wrapBy: count * spacing })
       }
     }
@@ -375,8 +421,8 @@ export class RaceWorld {
         const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.12), new THREE.MeshBasicMaterial({ color: new THREE.Color('#4dff9a').multiplyScalar(1.6), toneMapped: false }))
         lamp.position.set(x, 6.9, -0.34)
         root.add(lamp)
-        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#3dff90', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
-        halo.scale.setScalar(3.4)
+        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#3dff90', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
+        halo.scale.setScalar(2.3)
         halo.position.set(x, 6.9, -0.5)
         root.add(halo)
         const wet = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 22), this.additive('#3dff90', 0.09, this.streak))
@@ -386,7 +432,7 @@ export class RaceWorld {
       }
       const z = -60 - i * spacing
       root.position.z = z
-      this.scene.add(root)
+      this.target.add(root)
       this.props.push({ root, homeZ: z, wrapAt: 40, wrapBy: count * spacing })
     }
   }
@@ -411,7 +457,7 @@ export class RaceWorld {
     for (let i = 0; i < count * 2; i += 1) homes.push(-6 - (i >> 1) * spacing)
     const span = count * spacing
     const near = 40
-    this.postsApply = (offset: number) => {
+    this.fields.push((offset: number) => {
       for (let i = 0; i < count * 2; i += 1) {
         const side = i & 1 ? 1 : -1
         // wrap into [-(span - near), near) so posts reappear far ahead, hidden by fog
@@ -424,9 +470,116 @@ export class RaceWorld {
       }
       mesh.instanceMatrix.needsUpdate = true
       reflector.instanceMatrix.needsUpdate = true
-    }
-    this.postsApply(0)
+    })
+    this.fields[this.fields.length - 1](0)
     group.add(mesh, reflector)
-    this.scene.add(group)
+    this.target.add(group)
+  }
+
+  /**
+   * Scrolling scenery made of instanced parts (trees, rocks...). Each item carries x, z, scale and yaw;
+   * parts are stacked on that transform. Everything wraps behind the camera like the other props.
+   */
+  private addField(parts: Array<{ geo: THREE.BufferGeometry; mat: THREE.Material; y: number; shadow?: boolean }>, items: Array<{ x: number; z: number; s: number; r: number }>, span: number): void {
+    const near = 40
+    const meshes = parts.map(part => {
+      const mesh = new THREE.InstancedMesh(part.geo, part.mat, items.length)
+      mesh.castShadow = part.shadow ?? false
+      mesh.frustumCulled = false
+      this.target.add(mesh)
+      return mesh
+    })
+    const dummy = new THREE.Object3D()
+    this.fields.push((offset: number) => {
+      items.forEach((item, i) => {
+        const z = ((((item.z + offset + (span - near)) % span) + span) % span) - (span - near)
+        parts.forEach((part, k) => {
+          dummy.position.set(item.x, part.y * item.s, z)
+          dummy.rotation.set(0, item.r, 0)
+          dummy.scale.setScalar(item.s)
+          dummy.updateMatrix()
+          meshes[k].setMatrixAt(i, dummy.matrix)
+        })
+      })
+      for (const mesh of meshes) mesh.instanceMatrix.needsUpdate = true
+    })
+    this.fields[this.fields.length - 1](0)
+  }
+
+  private scatter(random: () => number, count: number, spanZ: number, minX: number, maxX: number, minS: number, maxS: number): Array<{ x: number; z: number; s: number; r: number }> {
+    const items = []
+    for (let i = 0; i < count; i += 1) {
+      const side = random() < 0.5 ? -1 : 1
+      items.push({ x: side * (minX + random() * (maxX - minX)), z: -random() * spanZ, s: minS + random() * (maxS - minS), r: random() * Math.PI * 2 })
+    }
+    return items
+  }
+
+  /** Mountain road at night: pine forest, ridges, guard rails. */
+  private addSerra(): void {
+    const random = seeded(9001)
+    const needles = new THREE.MeshStandardMaterial({ color: '#0f2a1d', roughness: 0.95, flatShading: true })
+    const needles2 = new THREE.MeshStandardMaterial({ color: '#143524', roughness: 0.95, flatShading: true })
+    const bark = new THREE.MeshStandardMaterial({ color: '#2a1d14', roughness: 1 })
+    const span = 440
+    const near = this.scatter(random, 150, span, ROAD_HALF + 3, ROAD_HALF + 14, 0.8, 1.6)
+    const far = this.scatter(random, 150, span, ROAD_HALF + 14, ROAD_HALF + 60, 1.1, 2.6)
+    for (const [items, mat] of [[near, needles], [far, needles2]] as const) {
+      this.addField([
+        { geo: new THREE.CylinderGeometry(0.16, 0.24, 2, 6), mat: bark, y: 1 },
+        { geo: new THREE.ConeGeometry(1.9, 4.6, 7), mat, y: 3.6, shadow: true },
+        { geo: new THREE.ConeGeometry(1.45, 3.8, 7), mat, y: 5.9 },
+        { geo: new THREE.ConeGeometry(0.95, 3.0, 7), mat, y: 7.9 },
+      ], items, span)
+    }
+    // layered ridges fade into the fog
+    const ridge = new THREE.MeshStandardMaterial({ color: '#0b1620', roughness: 1, flatShading: true })
+    for (let i = 0; i < 18; i += 1) {
+      const h = 50 + random() * 90
+      const r = 60 + random() * 90
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h, 6 + Math.floor(random() * 3)), ridge)
+      cone.position.set((i - 9) * 40 + (random() - 0.5) * 30, h / 2 - 4, -250 - random() * 110)
+      cone.rotation.y = random() * 3
+      this.target.add(cone)
+    }
+    const rail = new THREE.MeshStandardMaterial({ color: '#8d979d', roughness: 0.4, metalness: 0.8 })
+    for (const side of [-1, 1]) {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.32, 1500), rail)
+      beam.position.set(side * (ROAD_HALF + 1.15), 0.62, -620)
+      this.target.add(beam)
+    }
+  }
+
+  /** Empty desert highway at sunset: sand, buttes, rocks, cacti and power poles. */
+  private addDeserto(): void {
+    const random = seeded(777)
+    const rock = new THREE.MeshStandardMaterial({ color: '#7a4a2c', roughness: 1, flatShading: true })
+    const rockDark = new THREE.MeshStandardMaterial({ color: '#5a3622', roughness: 1, flatShading: true })
+    const cactus = new THREE.MeshStandardMaterial({ color: '#3d5a2e', roughness: 0.9 })
+    const wood = new THREE.MeshStandardMaterial({ color: '#4a3524', roughness: 0.95 })
+    const span = 440
+    this.addField([{ geo: new THREE.DodecahedronGeometry(1, 0), mat: rock, y: 0.45, shadow: true }], this.scatter(random, 90, span, ROAD_HALF + 3, ROAD_HALF + 38, 0.6, 2.4), span)
+    this.addField([{ geo: new THREE.DodecahedronGeometry(1, 0), mat: rockDark, y: 1.2, shadow: true }], this.scatter(random, 28, span, ROAD_HALF + 20, ROAD_HALF + 90, 3, 8), span)
+    // saguaro: trunk plus two upturned arms
+    this.addField([
+      { geo: new THREE.CapsuleGeometry(0.28, 3.2, 4, 8), mat: cactus, y: 1.9, shadow: true },
+      { geo: new THREE.CapsuleGeometry(0.17, 1.1, 4, 6), mat: cactus, y: 2.7 },
+    ], this.scatter(random, 80, span, ROAD_HALF + 3.5, ROAD_HALF + 26, 0.8, 1.5), span)
+    // telegraph poles on one side, evenly spaced
+    const poles = []
+    for (let i = 0; i < 11; i += 1) poles.push({ x: -(ROAD_HALF + 3.2), z: -10 - i * 40, s: 1, r: 0 })
+    this.addField([
+      { geo: new THREE.CylinderGeometry(0.1, 0.14, 8, 6), mat: wood, y: 4 },
+      { geo: new THREE.BoxGeometry(2.4, 0.14, 0.14), mat: wood, y: 7.4 },
+    ], poles, 440)
+    // far mesas
+    const mesa = new THREE.MeshStandardMaterial({ color: '#8a4b2a', roughness: 1, flatShading: true })
+    for (let i = 0; i < 14; i += 1) {
+      const w = 40 + random() * 70
+      const h = 24 + random() * 40
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.55, w * 0.8, h, 7), mesa)
+      top.position.set((i - 7) * 52 + (random() - 0.5) * 30, h / 2 - 3, -240 - random() * 120)
+      this.target.add(top)
+    }
   }
 }

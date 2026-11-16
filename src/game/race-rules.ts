@@ -84,3 +84,33 @@ export function trafficWaveSize(elapsedSeconds: number, roll: number): 1 | 2 {
   const chance = elapsed < 8 ? 0 : elapsed < 20 ? 0.18 : elapsed < 45 ? 0.3 : 0.4
   return roll >= 0 && roll < chance ? 2 : 1
 }
+
+// ---- Progressão por distância (sem limite) ----------------------------------------------------
+// A corrida começa lenta e fácil; velocidade, densidade e ondas de tráfego crescem com a distância.
+
+/** Nível de dificuldade exibido ao jogador: sobe a cada 600 m. */
+export function levelForDistance(distanceMeters: number): number {
+  return 1 + Math.floor(Math.max(0, Number.isFinite(distanceMeters) ? distanceMeters : 0) / 600)
+}
+
+/** Velocidade de cruzeiro (m/s). Cresce de forma logarítmica e nunca para: ~58 km/h no início, ~240 km/h aos 100 km. */
+export function cruiseSpeed(distanceMeters: number): number {
+  const d = Math.max(0, Number.isFinite(distanceMeters) ? distanceMeters : 0)
+  return 16 + 9.5 * Math.log1p(d / 450)
+}
+
+/** Intervalo entre veículos e velocidade relativa do tráfego conforme a distância. */
+export function trafficDifficultyByDistance(distanceMeters: number): TrafficDifficulty {
+  const d = Math.max(0, Number.isFinite(distanceMeters) ? distanceMeters : 0)
+  return {
+    interval: Math.max(0.34, 1.7 * Math.exp(-d / 5500)),
+    speedFactor: 1.12 + 0.5 * (1 - Math.exp(-d / 6000)),
+  }
+}
+
+/** Sem ondas de dois carros nos primeiros 250 m; depois a chance sobe até 70%. */
+export function trafficWaveSizeByDistance(distanceMeters: number, roll: number): 1 | 2 {
+  const d = Math.max(0, Number.isFinite(distanceMeters) ? distanceMeters : 0)
+  const chance = d < 250 ? 0 : Math.min(0.7, 0.15 + (d - 250) / 9000)
+  return roll >= 0 && roll < chance ? 2 : 1
+}

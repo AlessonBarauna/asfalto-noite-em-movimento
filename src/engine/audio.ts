@@ -26,6 +26,9 @@ export class Audio {
     this.master.connect(this.ctx.destination)
   }
 
+  get sfxBus(): GainNode { return this.sfx }
+  get musicBus(): GainNode { return this.music }
+
   unlock(): void {
     if (this.ctx.state === 'suspended') void this.ctx.resume()
   }

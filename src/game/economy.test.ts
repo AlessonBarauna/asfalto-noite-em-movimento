@@ -45,7 +45,7 @@ describe('vehicle unlock economy', () => {
 
   it('keeps the starter car free and all other prices positive', () => {
     expect(VEHICLE_PRICES['gol-g5']).toBe(0)
-    expect(Object.entries(VEHICLE_PRICES).filter(([id]) => id !== 'gol-g5').every(([, price]) => price > 0)).toBe(true)
+    expect(Object.entries(VEHICLE_PRICES).filter(([id]) => id !== 'gol-g5' && id !== 'supercar').every(([, price]) => price > 0)).toBe(true)
   })
 })
 

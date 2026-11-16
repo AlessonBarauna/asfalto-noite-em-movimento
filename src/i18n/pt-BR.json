@@ -17,7 +17,7 @@
   "hud.nitro": "NITRO",
   "hud.nearMiss": "POR UM TRIZ!",
   "hud.hit": "COLISÃO",
-  "hint.keyboard": "← → / A D para desviar · W acelerar · S frear · F nitro · Esc pausar",
+  "hint.keyboard": "← → / A D para desviar · W acelerar · S frear · ESPAÇO pular · F nitro · Esc pausar",
   "hint.touch": "Arraste para desviar · toque em ACELERAR ou NITRO",
   "pause.title": "PIT STOP",
   "pause.subtitle": "Respire fundo. A pista continua te esperando.",

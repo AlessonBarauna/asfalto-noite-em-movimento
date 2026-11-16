@@ -5,7 +5,7 @@
 export type Locale = 'en' | 'zh-CN'
 export type Quality = 'low' | 'medium' | 'high'
 
-export type PlayerVehicleId = 'gol-g5' | 'uno' | 'palio' | 'celta' | 'corsa' | 'onix' | 'hb20' | 'saveiro' | 'fiorino'
+export type PlayerVehicleId = 'gol-g5' | 'uno' | 'palio' | 'celta' | 'corsa' | 'onix' | 'hb20' | 'saveiro' | 'fiorino' | 'supercar'
 
 export type ScoreEntry = { name: string; score: number; seconds: number; at: number }
 
@@ -41,12 +41,15 @@ export type SaveData = {
   credits: number
   lifetimeCredits: number
   completedRuns: number
+  scenario: string
+  bestDistance: number
+  totalDistance: number
   leaderboard: ScoreEntry[]
 }
 
 export const SAVE_KEY = 'asfalto.save.v8'
 const LEGACY_SAVE_KEYS = ['asfalto.save.v7', 'asfalto.save.v6', 'asfalto.save.v5', 'asfalto.save.v4', 'asfalto.save.v3', 'asfalto.save.v2', 'asfalto.save.v1']
-const VEHICLES: PlayerVehicleId[] = ['gol-g5', 'uno', 'palio', 'celta', 'corsa', 'onix', 'hb20', 'saveiro', 'fiorino']
+const VEHICLES: PlayerVehicleId[] = ['gol-g5', 'uno', 'palio', 'celta', 'corsa', 'onix', 'hb20', 'saveiro', 'fiorino', 'supercar']
 export const LEADERBOARD_SIZE = 10
 
 export function defaultSave(): SaveData {
@@ -62,7 +65,7 @@ export function defaultSave(): SaveData {
     reducedMotion: false,
     tutorialDone: false,
     playerName: 'PILOTO',
-    playerVehicle: 'gol-g5',
+    playerVehicle: 'supercar',
     playerPaint: '#4a5052',
     unlockedPaints: ['#4a5052'],
     playerWheels: 'alloy',
@@ -77,9 +80,12 @@ export function defaultSave(): SaveData {
     unlockedExhausts: ['stock'],
     playerHeadlights: 'halogen',
     unlockedHeadlights: ['halogen'],
-    unlockedVehicles: ['gol-g5'],
+    unlockedVehicles: ['gol-g5', 'supercar'],
     credits: 0,
     lifetimeCredits: 0,
+    scenario: 'cidade',
+    bestDistance: 0,
+    totalDistance: 0,
     completedRuns: 0,
     leaderboard: [],
   }
@@ -106,6 +112,7 @@ export function parseSave(raw: string | null): SaveData {
       ? [...new Set(data.unlockedVehicles.filter((id): id is PlayerVehicleId => VEHICLES.includes(id as PlayerVehicleId)))]
       : ['gol-g5']
   if (!unlockedVehicles.includes('gol-g5')) unlockedVehicles.unshift('gol-g5')
+  if (!unlockedVehicles.includes('supercar')) unlockedVehicles.push('supercar') // free flagship car for everyone
   const unlockedPaints = typeof data.version === 'number' && data.version >= 5 && Array.isArray(data.unlockedPaints)
     ? [...new Set(data.unlockedPaints.filter((paint): paint is string => typeof paint === 'string' && /^#[0-9a-fA-F]{6}$/.test(paint)))]
     : ['#4a5052']
@@ -170,6 +177,9 @@ export function parseSave(raw: string | null): SaveData {
     credits: Number.isFinite(data.credits) ? Math.max(0, Math.floor(data.credits as number)) : base.credits,
     lifetimeCredits: Number.isFinite(data.lifetimeCredits) ? Math.max(0, Math.floor(data.lifetimeCredits as number)) : base.lifetimeCredits,
     completedRuns: Number.isFinite(data.completedRuns) ? Math.max(0, Math.floor(data.completedRuns as number)) : base.completedRuns,
+    scenario: data.scenario === 'serra' || data.scenario === 'deserto' ? data.scenario : 'cidade',
+    bestDistance: Number.isFinite(data.bestDistance) ? Math.max(0, data.bestDistance as number) : 0,
+    totalDistance: Number.isFinite(data.totalDistance) ? Math.max(0, data.totalDistance as number) : 0,
     leaderboard: board
       .filter((e): e is ScoreEntry => !!e && typeof e === 'object' && typeof (e as ScoreEntry).name === 'string' && Number.isFinite((e as ScoreEntry).score))
       .map(e => ({ name: e.name.slice(0, 16), score: Math.max(0, Math.floor(e.score)), seconds: Number.isFinite(e.seconds) ? e.seconds : 0, at: Number.isFinite(e.at) ? e.at : 0 }))

@@ -3,10 +3,11 @@ import { Audio } from './engine/audio'
 import { Input } from './engine/input'
 import { GameLoop } from './engine/loop'
 import { Renderer, suggestQuality } from './engine/renderer'
-import { SAVE_KEY, SaveStore, insertScore } from './engine/save'
+import { SAVE_KEY, SaveStore, insertScore, type PlayerVehicleId } from './engine/save'
+import { preloadSupercar } from './game/supercar'
+import type { ScenarioId } from './game/scenarios'
 import { RaceGame, type RaceResult } from './game/race-game'
 import { calculateRacePayout, purchaseVehicle as buyVehicle, purchasePaint as buyPaint, purchaseWheels as buyWheels, purchaseTint as buyTint, purchaseSpoiler as buySpoiler, purchaseSuspension as buySuspension, purchaseExhaust as buyExhaust, purchaseHeadlights as buyHeadlights } from './game/economy'
-import type { BrazilianTrafficModel } from './game/traffic-vehicles'
 import { tuning } from './game/tuning'
 import { TouchControls } from './ui/touch'
 import { RaceUI } from './ui/race-ui'
@@ -31,7 +32,9 @@ async function boot(): Promise<void> {
     pause: () => pauseRun(),
     resume: () => resumeRun(),
     restart: () => startRun(),
-    toTitle: () => { game?.toTitle(); ui.showTitle(bestScore(), save.data.playerName, save.data.credits) },
+    toTitle: () => { bankRun(); game?.toTitle(); showTitleScreen() },
+    selectScenario: id => { save.update({ scenario: id }); game?.setScenario(save.data.scenario as ScenarioId); ui.setScenario(save.data.scenario) },
+    setSensitivity: value => { save.update({ sensitivity: value }); input.sensitivity = save.data.sensitivity; ui.setSensitivity(save.data.sensitivity) },
     openLeaderboard: () => { ui.showLeaderboard(save.data.leaderboard) },
     openGarage: () => { ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights) },
     selectVehicle: model => {
@@ -113,14 +116,51 @@ async function boot(): Promise<void> {
   let game: RaceGame | undefined
   let loop: GameLoop | undefined
   let resultHandled = false
+  let lastLevel = 1
   let crashSound: AudioBuffer | undefined
   let engineSound: AudioBuffer | undefined
 
   function bestScore(): number {
     return save.data.leaderboard[0]?.score ?? 0
   }
+  /** Parcial já pago da corrida em andamento (créditos e metros), para não pagar duas vezes. */
+  let bankedCredits = 0
+  let bankedDistance = 0
+  /** Guarda o progresso parcial (créditos e distância) para não perder nada se a aba fechar no meio da corrida. */
+  function bankRun(): void {
+    if (!game || tuning.unranked) return
+    if (game.mode !== 'playing' && game.mode !== 'paused') return
+    const snap = game.snapshot()
+    bankProgress(snap.distance, snap.nearMisses)
+  }
+  function bankProgress(distance: number, nearMisses: number): number {
+    const earned = calculateRacePayout(distance, nearMisses).credits
+    const credits = Math.max(0, earned - bankedCredits)
+    const meters = Math.max(0, distance - bankedDistance)
+    if (credits > 0 || meters > 0) {
+      save.update({
+        credits: save.data.credits + credits,
+        lifetimeCredits: save.data.lifetimeCredits + credits,
+        totalDistance: save.data.totalDistance + meters,
+        bestDistance: Math.max(save.data.bestDistance, distance),
+      })
+    }
+    bankedCredits = earned
+    bankedDistance = distance
+    return earned
+  }
+  function showTitleScreen(): void {
+    ui.showTitle(bestScore(), save.data.playerName, save.data.credits)
+    ui.setScenario(save.data.scenario)
+    ui.setSensitivity(save.data.sensitivity)
+    ui.setDistanceStats(save.data.bestDistance, save.data.totalDistance)
+  }
   function startRun(): void {
     if (!game) return
+    bankRun()
+    bankedCredits = 0
+    bankedDistance = 0
+    lastLevel = 1
     audio.unlock()
     game.start()
     resultHandled = false
@@ -150,15 +190,17 @@ async function boot(): Promise<void> {
   engineSound = engine ?? undefined
 
   ui.setBootProgress(0.76, 'Preparando o trânsito…')
+  await preloadSupercar().catch(() => undefined) // optional: falls back to the procedural Gol if it cannot load
   const renderer = new Renderer(canvas, save.data.quality)
-  game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound, playerVehicle: save.data.playerVehicle as BrazilianTrafficModel, playerPaint: save.data.playerPaint, playerWheels: save.data.playerWheels, playerTint: save.data.playerTint, playerSpoiler: save.data.playerSpoiler, playerSuspension: save.data.playerSuspension, playerExhaust: save.data.playerExhaust, playerHeadlights: save.data.playerHeadlights })
+  game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound, playerVehicle: save.data.playerVehicle as PlayerVehicleId, scenario: save.data.scenario as ScenarioId, playerPaint: save.data.playerPaint, playerWheels: save.data.playerWheels, playerTint: save.data.playerTint, playerSpoiler: save.data.playerSpoiler, playerSuspension: save.data.playerSuspension, playerExhaust: save.data.playerExhaust, playerHeadlights: save.data.playerHeadlights })
   if (import.meta.env.DEV) {
     const [{ registerGameTuning }] = await Promise.all([import('../scripts/manus-tuning/adapter.js')])
     void registerGameTuning(tuning)
   }
   new TouchControls(root, input, () => game?.mode === 'playing')
   ui.setBootProgress(1, 'A cidade está pronta.')
-  ui.showTitle(bestScore(), save.data.playerName, save.data.credits)
+  input.sensitivity = save.data.sensitivity
+  showTitleScreen()
 
   const currentGame = game
   loop = new GameLoop({
@@ -174,8 +216,10 @@ async function boot(): Promise<void> {
       currentGame.step(dt)
     },
     render: (_alpha, frameSeconds) => {
+      currentGame.setGarageView(ui.screen === 'garage')
       const state = currentGame.render(frameSeconds)
       if (currentGame.mode === 'playing' || currentGame.mode === 'ended') ui.update(state)
+      if (currentGame.mode === 'playing' && state.level > lastLevel) { lastLevel = state.level; ui.toast(`NÍVEL ${state.level} · TRÁFEGO MAIS RÁPIDO`) }
       if (currentGame.mode === 'ended' && !resultHandled) {
         resultHandled = true
         const result = currentGame.result
@@ -194,19 +238,15 @@ async function boot(): Promise<void> {
     if (!result.unranked) {
       const entry = { name: save.data.playerName, score: result.score, seconds: result.seconds, at: Date.now() }
       const inserted = insertScore(save.data.leaderboard, entry)
-      payout = calculateRacePayout(result.distance, result.nearMisses).credits
-      save.update({
-        leaderboard: inserted.board,
-        credits: save.data.credits + payout,
-        lifetimeCredits: save.data.lifetimeCredits + payout,
-        completedRuns: save.data.completedRuns + 1,
-      })
+      payout = bankProgress(result.distance, result.nearMisses) // paga só o que ainda não foi guardado
+      save.update({ leaderboard: inserted.board, completedRuns: save.data.completedRuns + 1 })
       nextBest = Math.max(previousBest, inserted.board[0]?.score ?? 0)
     }
     ui.showResults(result.score, result.distance, result.nearMisses, result.unranked ? previousBest : nextBest, result.unranked, payout, save.data.credits)
   }
 
-  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseRun() })
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { pauseRun(); bankRun() } })
+  window.addEventListener('pagehide', bankRun)
   window.addEventListener('game:pause', pauseRun)
   ;(window as unknown as { __game: unknown }).__game = { game: currentGame, ui, input, save }
 }

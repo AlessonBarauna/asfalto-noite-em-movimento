@@ -5,8 +5,8 @@ describe('versioned save and vehicle unlock migration', () => {
   it('starts a new profile with only the Gol G5 unlocked', () => {
     const save = defaultSave()
     expect(save.version).toBe(8)
-    expect(save.playerVehicle).toBe('gol-g5')
-    expect(save.unlockedVehicles).toEqual(['gol-g5'])
+    expect(save.playerVehicle).toBe('supercar')
+    expect(save.unlockedVehicles).toEqual(['gol-g5', 'supercar'])
   })
 
   it('preserves the complete free garage from version 3 saves', () => {
@@ -14,7 +14,7 @@ describe('versioned save and vehicle unlock migration', () => {
     expect(save.version).toBe(8)
     expect(save.playerVehicle).toBe('saveiro')
     expect(save.unlockedVehicles).toContain('saveiro')
-    expect(save.unlockedVehicles).toHaveLength(9)
+    expect(save.unlockedVehicles).toHaveLength(10)
     expect(save.credits).toBe(250)
   })
 
@@ -26,7 +26,7 @@ describe('versioned save and vehicle unlock migration', () => {
       credits: 900,
     }))
     expect(save.playerVehicle).toBe('gol-g5')
-    expect(save.unlockedVehicles).toEqual(['gol-g5', 'uno'])
+    expect(save.unlockedVehicles).toEqual(['gol-g5', 'uno', 'supercar'])
     expect(save.credits).toBe(900)
   })
 
@@ -37,7 +37,7 @@ describe('versioned save and vehicle unlock migration', () => {
       unlockedVehicles: ['uno', 'unknown-car'],
     }))
     expect(save.playerVehicle).toBe('uno')
-    expect(save.unlockedVehicles).toEqual(['uno', 'gol-g5'])
+    expect(save.unlockedVehicles).toEqual(['uno', 'gol-g5', 'supercar'])
   })
 })
 
@@ -53,7 +53,7 @@ describe('paint save migration', () => {
     const save = parseSave(JSON.stringify({ version: 4, playerVehicle: 'uno', unlockedVehicles: ['gol-g5', 'uno'], credits: 320 }))
     expect(save.version).toBe(8)
     expect(save.playerVehicle).toBe('uno')
-    expect(save.unlockedVehicles).toEqual(['gol-g5', 'uno'])
+    expect(save.unlockedVehicles).toEqual(['gol-g5', 'uno', 'supercar'])
     expect(save.playerPaint).toBe('#4a5052')
     expect(save.credits).toBe(320)
   })
@@ -77,7 +77,7 @@ describe('wheel and tint save migration', () => {
     expect(save.playerVehicle).toBe('uno')
     expect(save.playerPaint).toBe('#d71920')
     expect(save.unlockedPaints).toContain('#d71920')
-    expect(save.unlockedVehicles).toEqual(['gol-g5', 'uno'])
+    expect(save.unlockedVehicles).toEqual(['gol-g5', 'uno', 'supercar'])
     expect(save.credits).toBe(740)
     expect(save.playerWheels).toBe('alloy')
     expect(save.playerTint).toBe('smoke')

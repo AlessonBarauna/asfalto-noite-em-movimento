@@ -61,3 +61,26 @@
 .accessory-symbol{display:flex;align-items:center;justify-content:center;width:30px;height:27px;color:#d6a36a;font-size:23px;font-style:normal;font-weight:900}.accessory-option .accessory-symbol{background:#202a31;border:1px solid #46515a;border-radius:5px}
 
 /* Exhaust and headlight options reuse the shared accessory-card layout. */
+
+/* Cenários, sensibilidade e estatísticas */
+.scenario-picker{display:flex;flex-direction:column;gap:6px;width:min(480px,100%);margin:2px 0 0}
+.scenario-picker>span,.sens-row>span{font-size:8px;font-weight:800;letter-spacing:.18em;color:#93a3aa}
+.scenario-row{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.scenario-btn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:9px 10px;text-align:left;color:#cdd6d9;background:#0b121a99;border:1px solid var(--line);border-left:2px solid #4b5b64;cursor:pointer;font:inherit;transition:background .18s,border-color .18s}
+.scenario-btn b{font-size:11px;letter-spacing:.14em;color:#f2ede2}
+.scenario-btn small{font-size:9px;line-height:1.35;color:#9aa8ae}
+.scenario-btn:hover,.scenario-btn:focus-visible{background:#15202b;outline:none}
+.scenario-btn.is-selected{border-color:var(--accent);border-left-color:var(--accent);background:#1b2631}
+.sens-row{display:flex;flex-direction:column;gap:6px;width:min(480px,100%);padding:8px 10px;border-left:1px solid var(--line);background:#08101899}
+.sens-row b{color:#ffb36e;margin-left:6px}
+.sens-slider{width:100%;accent-color:var(--accent)}
+.modal .sens-row{margin-top:14px;width:100%}
+.title-sub{display:block;margin-top:7px;font-size:8px;letter-spacing:.15em;color:#93a3aa}
+.title-sub i{font-style:normal;color:#f4e8d6;margin-left:6px;font-size:10px}
+@media(max-width:700px){.scenario-row{grid-template-columns:1fr}.scenario-btn small{display:none}}
+@media(max-height:820px){.title-copy{display:none}.title-actions{flex-direction:row;flex-wrap:wrap;width:min(480px,100%)}.title-actions .game-btn{flex:1 1 140px}.game-wordmark{font-size:clamp(48px,11vh,96px)!important}}
+
+/* Garagem como painel lateral: o carro gira à direita */
+.screen-modal[data-screen="garage"]{place-items:stretch start;background:linear-gradient(90deg,#050a0fe6 0,#050a0f99 38%,transparent 62%);backdrop-filter:none;-webkit-backdrop-filter:none}
+.screen-modal[data-screen="garage"] .garage-modal{width:min(470px,100vw);height:100%;max-height:100vh;border-radius:0;border-width:0 1px 0 0;margin:0}
+@media(max-width:760px){.screen-modal[data-screen="garage"]{background:#050a0fd9}}

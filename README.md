@@ -67,6 +67,10 @@ The bundled Chinese font preserves its 6,547-codepoint repertoire; no font downl
 See `public/fonts/ManusCC0-LICENSE.txt`.
 Libraries: three.js (MIT), Rapier (Apache-2.0).
 
+3D model: "CarConcept" (carro esportivo do garagem) — © Khronos Group / criado por Eric Chadwick (Darmstadt Graphics Group GmbH), licença
+CC BY 4.0, de KhronosGroup/glTF-Sample-Assets. Otimizado (malha simplificada, texturas WebP 1024px, compressão meshopt)
+em `public/models/supercar.glb`.
+
 ## Preview Tweak
 
 `src/game/tuning.ts` is this game's parameter manager. The Addon panel reads its
