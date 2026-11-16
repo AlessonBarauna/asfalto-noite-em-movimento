@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 
 /** Approximate, detailed Three.js model of a Brazilian Volkswagen Gol G5 hatchback. */
 export const GOL_G5_DIMENSIONS = {
@@ -35,21 +36,14 @@ function addBox(
   material: THREE.Material,
   bevel = false,
 ): THREE.Mesh {
-  const geometry = new THREE.BoxGeometry(...size)
+  const radius = bevel ? Math.min(0.1, Math.min(...size) * 0.42) : 0
+  const geometry = radius > 0.012 ? new RoundedBoxGeometry(size[0], size[1], size[2], 3, radius) : new THREE.BoxGeometry(...size)
   const mesh = new THREE.Mesh(geometry, material)
   mesh.name = name
   mesh.position.set(...position)
   mesh.castShadow = true
   mesh.receiveShadow = true
   parent.add(mesh)
-  if (bevel) {
-    const edge = new THREE.LineSegments(
-      new THREE.EdgesGeometry(geometry),
-      new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.055 }),
-    )
-    edge.position.copy(mesh.position)
-    parent.add(edge)
-  }
   return mesh
 }
 
@@ -74,10 +68,10 @@ export function createGolG5Model(paint: THREE.ColorRepresentation = '#4a5052'): 
   car.add(body, glass, trim, wheels, lights)
 
   const paintMaterial = new THREE.MeshPhysicalMaterial({
-    color: paint, metalness: 0.68, roughness: 0.23, clearcoat: 1, clearcoatRoughness: 0.12,
+    color: paint, metalness: 0.55, roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.6,
   })
   const glassMaterial = new THREE.MeshPhysicalMaterial({
-    color: '#10212c', metalness: 0.22, roughness: 0.13, clearcoat: 1,
+    color: '#1b2f3d', metalness: 0.45, roughness: 0.07, clearcoat: 1, envMapIntensity: 2.2,
     clearcoatRoughness: 0.08, transparent: true, opacity: 0.94, side: THREE.DoubleSide,
   })
   const rubberMaterial = new THREE.MeshStandardMaterial({ color: '#101316', roughness: 0.92 })

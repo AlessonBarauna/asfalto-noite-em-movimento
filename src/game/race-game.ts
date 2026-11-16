@@ -10,6 +10,8 @@ import { createGolG5Model } from './gol-g5'
 import { BRAZILIAN_TRAFFIC_MODELS, createBrazilianTrafficVehicle, type BrazilianTrafficModel } from './traffic-vehicles'
 import { tuning } from './tuning'
 import { applyGarageVisuals } from './garage-visuals'
+import { Effects } from './fx'
+import { glowTexture, streakTexture } from './visuals/textures'
 
 export type RaceSnapshot = {
   score: number
@@ -53,6 +55,16 @@ export class RaceGame {
   private boostCooldown = 0
   private hitShake = 0
   private cameraX = 0
+  private readonly effects = new Effects()
+  private readonly glow = glowTexture()
+  private readonly streak = streakTexture()
+  private readonly carLights = new THREE.Group()
+  private readonly headSpots: THREE.SpotLight[] = []
+  private readonly tailGlows: THREE.Sprite[] = []
+  private readonly nitroFlames: THREE.Sprite[] = []
+  private rainOn = true
+  private hitFlash = 0
+  private fovBoost = 0
 
   constructor(
     private readonly renderer: Renderer,
@@ -60,7 +72,7 @@ export class RaceGame {
     private readonly audio: Audio,
     sounds: { crash?: AudioBuffer; engine?: AudioBuffer; playerVehicle?: BrazilianTrafficModel; playerPaint?: string; playerWheels?: string; playerTint?: string; playerSpoiler?: string; playerSuspension?: string; playerExhaust?: string; playerHeadlights?: string } = {},
   ) {
-    this.world = new RaceWorld()
+    this.world = new RaceWorld(renderer.gl, renderer.shadowMapSize)
     this.crashBuffer = sounds.crash
     this.engineBuffer = sounds.engine
     this.world.scene.add(this.player)
@@ -71,6 +83,10 @@ export class RaceGame {
     this.player.rotation.y = Math.PI // The player car faces +Z; rotate it toward the road's -Z direction.
     this.player.position.set(0, 0.02, RACE_CONFIG.playerZ)
     this.createTrafficPool()
+    this.createCarLights()
+    this.world.scene.add(this.effects.mesh)
+    this.setRain(renderer.rainAllowed)
+    window.addEventListener('keydown', event => { if (event.code === 'KeyR' && !event.repeat && renderer.rainAllowed) this.setRain(!this.rainOn) })
     this.camera.position.set(0, 5.2, RACE_CONFIG.playerZ + 12.6)
     this.camera.lookAt(0, 1.2, -19)
   }
@@ -80,6 +96,11 @@ export class RaceGame {
     const car = model === 'gol-g5' ? createGolG5Model(paint) : createBrazilianTrafficVehicle(model, paint)
     applyGarageVisuals(car, wheels, tint, spoiler, suspension, exhaust, headlights)
     this.playerVisual.add(car)
+  }
+
+  setRain(on: boolean): void {
+    this.rainOn = on
+    this.world.setRain(on)
   }
 
   start(): void {
@@ -99,6 +120,8 @@ export class RaceGame {
     this.boostTimer = 0
     this.boostCooldown = 0
     this.hitShake = 0
+    this.hitFlash = 0
+    this.effects.clear()
     this.player.position.x = 0
     this.player.visible = true
     for (const car of this.traffic) {
@@ -143,6 +166,7 @@ export class RaceGame {
     this.boostCooldown = Math.max(0, this.boostCooldown - dt)
     this.boostTimer = Math.max(0, this.boostTimer - dt)
     this.hitShake = Math.max(0, this.hitShake - dt * 2.5)
+    this.hitFlash = Math.max(0, this.hitFlash - dt * 2.2)
 
     if (this.input.consume('dash') && this.boostCooldown <= 0) {
       this.boostTimer = RACE_CONFIG.boostDuration
@@ -179,10 +203,27 @@ export class RaceGame {
   }
 
   render(frameSeconds: number): RaceSnapshot {
-    const follow = 1 - Math.exp(-5.8 * Math.max(0, frameSeconds))
+    const dt = Math.max(0, frameSeconds)
+    const follow = 1 - Math.exp(-5.8 * dt)
     this.cameraX += (this.x - this.cameraX) * follow
-    this.camera.position.set(this.cameraX * 0.36, 5.05 + this.hitShake * 0.3, RACE_CONFIG.playerZ + 12.6 + this.hitShake)
+    const speed01 = this.mode === 'title' ? 0 : THREE.MathUtils.clamp((this.speed - RACE_CONFIG.startSpeed) / (RACE_CONFIG.maxSpeed + RACE_CONFIG.boostImpulse - RACE_CONFIG.startSpeed), 0, 1)
+    const boosting = this.mode === 'playing' && this.boostTimer > 0
+    this.fovBoost = THREE.MathUtils.damp(this.fovBoost, speed01 * 9 + (boosting ? 7 : 0), 4, dt)
+    if (Math.abs(this.camera.fov - (56 + this.fovBoost)) > 0.01) {
+      this.camera.fov = 56 + this.fovBoost
+      this.camera.updateProjectionMatrix()
+    }
+    const rumble = this.mode === 'playing' ? speed01 * 0.035 : 0
+    this.camera.position.set(
+      this.cameraX * 0.36 + (Math.random() - 0.5) * rumble,
+      5.05 + this.hitShake * 0.3 + (Math.random() - 0.5) * rumble,
+      RACE_CONFIG.playerZ + 12.6 + this.hitShake - speed01 * 0.5,
+    )
     this.camera.lookAt(this.cameraX * 0.65, 1.05, -21)
+    this.world.animate(dt, this.mode === 'title' ? 14 : this.speed)
+    this.effects.update(dt)
+    this.updateCarLights(boosting)
+    this.renderer.setFx(speed01, this.hitFlash)
     this.renderer.render(this.world.scene, this.camera)
     return this.snapshot()
   }
@@ -212,11 +253,82 @@ export class RaceGame {
       const kind = model.kind
       const paint = TRAFFIC_PAINTS[i % TRAFFIC_PAINTS.length]
       root.add(createBrazilianTrafficVehicle(model.id, paint))
+      this.addTrafficGlow(root, model.width, model.length)
       root.rotation.y = 0
       root.position.set(0, 0.02, -100 - i * 9)
       root.visible = false
       this.world.scene.add(root)
       this.traffic.push({ root, kind, lane: 1, active: false, tagged: false, speedFactor: 1, width: model.width, length: model.length })
+    }
+  }
+
+  /** Oncoming cars carry headlight halos and a wet-road reflection streak. */
+  private addTrafficGlow(root: THREE.Group, width: number, length: number): void {
+    for (const side of [-1, 1]) {
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#fff1d0', transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
+      halo.scale.setScalar(2.1)
+      halo.position.set(side * width * 0.31, 0.78, length * 0.5 + 0.12)
+      root.add(halo)
+    }
+    const beam = new THREE.Mesh(
+      new THREE.PlaneGeometry(width * 1.7, 15),
+      new THREE.MeshBasicMaterial({ color: '#ffe6bd', map: this.streak, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+    )
+    beam.rotation.x = -Math.PI / 2
+    beam.position.set(0, 0.03, length * 0.5 + 7.2)
+    root.add(beam)
+  }
+
+  /** Player headlight spots, tail/brake halos, nitro flames. */
+  private createCarLights(): void {
+    for (const side of [-1, 1]) {
+      const spot = new THREE.SpotLight('#ffe9c4', 140, 70, 0.42, 0.7, 1.6)
+      spot.position.set(side * 0.6, 0.85, RACE_CONFIG.playerZ - 2)
+      spot.target.position.set(side * 0.4, 0, RACE_CONFIG.playerZ - 38)
+      this.carLights.add(spot, spot.target)
+      this.headSpots.push(spot)
+      const tail = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#ff2a1c', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
+      tail.scale.setScalar(1.7)
+      tail.position.set(side * 0.72, 0.84, RACE_CONFIG.playerZ + 2.05)
+      this.carLights.add(tail)
+      this.tailGlows.push(tail)
+      const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#6cc4ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
+      flame.position.set(side * 0.55, 0.34, RACE_CONFIG.playerZ + 2.5)
+      this.carLights.add(flame)
+      this.nitroFlames.push(flame)
+    }
+    const beam = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.6, 34),
+      new THREE.MeshBasicMaterial({ color: '#ffe3b0', map: this.streak, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+    )
+    beam.rotation.x = -Math.PI / 2
+    beam.position.set(0, 0.03, RACE_CONFIG.playerZ - 19)
+    this.carLights.add(beam)
+    const tailStreak = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.6, 9),
+      new THREE.MeshBasicMaterial({ color: '#ff3b2a', map: this.streak, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+    )
+    tailStreak.rotation.set(-Math.PI / 2, 0, Math.PI)
+    tailStreak.position.set(0, 0.03, RACE_CONFIG.playerZ + 6.4)
+    this.carLights.add(tailStreak)
+    const fill = new THREE.DirectionalLight('#bcd0ff', 1.5)
+    fill.position.set(5, 9, RACE_CONFIG.playerZ + 22)
+    fill.target.position.set(0, 0.6, RACE_CONFIG.playerZ)
+    this.carLights.add(fill, fill.target)
+    this.world.scene.add(this.carLights)
+  }
+
+  private updateCarLights(boosting: boolean): void {
+    this.carLights.position.x = this.x
+    const braking = this.mode === 'playing' && this.input.move.y < -0.12
+    for (const tail of this.tailGlows) {
+      tail.scale.setScalar(braking ? 3.2 : 1.7)
+      tail.material.opacity = braking ? 1 : 0.8
+    }
+    for (const flame of this.nitroFlames) {
+      const flicker = 0.75 + Math.random() * 0.25
+      flame.material.opacity = boosting ? flicker : 0
+      flame.scale.setScalar(boosting ? 2.6 * flicker : 0.1)
     }
   }
 
@@ -271,6 +383,9 @@ export class RaceGame {
         this.lives = Math.max(0, this.lives - 1)
         this.invulnerable = 1.35
         this.hitShake = 1
+        this.hitFlash = 1
+        this.effects.burst(new THREE.Vector3(this.x, 0.8, RACE_CONFIG.playerZ - 1.4), '#ffb24a', 34, 9)
+        this.effects.burst(new THREE.Vector3(this.x, 0.5, RACE_CONFIG.playerZ - 1.4), '#ffe9b0', 14, 5)
         if (this.crashBuffer) {
           try { this.audio.playBuffer(this.crashBuffer, 'sfx') } catch { this.audio.play('hurt') }
         } else this.audio.play('hurt')
