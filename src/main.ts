@@ -7,7 +7,7 @@ import { SAVE_KEY, SaveStore, insertScore, type PlayerVehicleId } from './engine
 import { preloadSupercar } from './game/supercar'
 import type { ScenarioId } from './game/scenarios'
 import { RaceGame, type RaceResult } from './game/race-game'
-import { applyRun, cityMultiplier, cityUnlockId, rankLevel, rankLabel, requiredRank, vehicleUnlockId, xpForRun, type RunSummary } from './game/career'
+import { applyRun, buyCity, buyCountry, cityById, cityMultiplier, countryById, countryOfCity, rankLevel, rankLabel, requiredRank, vehicleUnlockId, xpForRun, type RunSummary } from './game/career'
 import { calculateRacePayout, purchaseVehicle as buyVehicle, purchasePaint as buyPaint, purchaseWheels as buyWheels, purchaseTint as buyTint, purchaseSpoiler as buySpoiler, purchaseSuspension as buySuspension, purchaseExhaust as buyExhaust, purchaseHeadlights as buyHeadlights } from './game/economy'
 import { tuning } from './game/tuning'
 import { TouchControls } from './ui/touch'
@@ -34,9 +34,30 @@ async function boot(): Promise<void> {
     resume: () => resumeRun(),
     restart: () => startRun(),
     toTitle: () => { bankRun(); game?.toTitle(); showTitleScreen() },
-    selectScenario: id => {
-      if (rankGate(cityUnlockId(id))) return
-      save.update({ scenario: id }); game?.setScenario(save.data.scenario as ScenarioId); ui.setScenario(save.data.scenario) },
+    openWorld: () => renderWorld(),
+    selectCity: id => {
+      const city = cityById(id)
+      if (!city || !save.data.world.cities.includes(id)) return
+      save.update({ city: id, scenario: city.theme })
+      game?.setScenario(city.theme as ScenarioId)
+      ui.setDestination(id)
+      ui.toast(`DESTINO: ${city.name.toUpperCase()}`)
+      renderWorld()
+    },
+    buyCountry: id => {
+      const result = buyCountry(save.data.credits, save.data.world, id, careerRank())
+      if (!result.success) { ui.toast(travelMessage(result.reason, id)); return }
+      save.update({ credits: result.balance, world: result.world })
+      ui.toast(`PASSAGEM COMPRADA · ${countryById(id)?.name.toUpperCase()}`)
+      renderWorld()
+    },
+    buyCity: id => {
+      const result = buyCity(save.data.credits, save.data.world, id, careerRank())
+      if (!result.success) { ui.toast(travelMessage(result.reason, id)); return }
+      save.update({ credits: result.balance, world: result.world })
+      ui.toast(`PASSAGEM COMPRADA · ${cityById(id)?.name.toUpperCase()}`)
+      renderWorld()
+    },
     setSensitivity: value => { save.update({ sensitivity: value }); input.sensitivity = save.data.sensitivity; ui.setSensitivity(save.data.sensitivity) },
     openLeaderboard: () => { ui.showLeaderboard(save.data.leaderboard) },
     openGarage: () => { ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights) },
@@ -130,6 +151,12 @@ async function boot(): Promise<void> {
   let bankedCredits = 0
   let bankedDistance = 0
   const careerRank = () => rankLevel(save.data.career.xp)
+  const renderWorld = () => ui.showWorld(save.data.world, save.data.credits, careerRank(), save.data.city)
+  const travelMessage = (reason: string, id: string): string =>
+    reason === 'rank-locked' ? 'REGIÃO BLOQUEADA PELA PATENTE'
+      : reason === 'insufficient-credits' ? 'CRÉDITOS INSUFICIENTES'
+        : reason === 'country-locked' ? `ABRA ${(countryOfCity(id)?.name ?? 'O PAÍS').toUpperCase()} PRIMEIRO`
+          : 'PASSAGEM JÁ COMPRADA'
   /** Mostra o aviso e devolve true quando a patente atual ainda não libera o item. */
   function rankGate(unlockId: string): boolean {
     const need = requiredRank(unlockId)
@@ -172,7 +199,7 @@ async function boot(): Promise<void> {
   }
   function showTitleScreen(): void {
     ui.showTitle(bestScore(), save.data.playerName, save.data.credits)
-    ui.setScenario(save.data.scenario)
+    ui.setDestination(save.data.city)
     ui.setSensitivity(save.data.sensitivity)
     ui.setDistanceStats(save.data.bestDistance, save.data.totalDistance)
     ui.setCareer(save.data.career.xp)
@@ -304,7 +331,7 @@ async function boot(): Promise<void> {
   window.addEventListener('pointercancel', endOrbit)
   window.addEventListener('wheel', event => { if (inGarageView(event.target)) currentGame.garageZoom(event.deltaY) }, { passive: true })
   window.addEventListener('dblclick', event => { if (inGarageView(event.target)) currentGame.resetGarageView() })
-  window.addEventListener('keydown', event => { if (event.code === 'Escape' && (ui.screen === 'garage' || ui.screen === 'leaderboard')) ui.goBack() })
+  window.addEventListener('keydown', event => { if (event.code === 'Escape' && (ui.screen === 'garage' || ui.screen === 'leaderboard' || ui.screen === 'world')) ui.goBack() })
   window.addEventListener('game:pause', pauseRun)
   ;(window as unknown as { __game: unknown }).__game = { game: currentGame, ui, input, save }
 }
