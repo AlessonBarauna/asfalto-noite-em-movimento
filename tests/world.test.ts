@@ -39,13 +39,13 @@ describe('mapa-múndi', () => {
     const world = defaultWorld()
     expect(buyCountry(99999, world, 'argentina', 1)).toMatchObject({ success: false, reason: 'rank-locked' })
     expect(buyCountry(0, world, 'argentina', 2)).toMatchObject({ success: false, reason: 'insufficient-credits' })
-    const ok = buyCountry(5000, world, 'argentina', 2)
+    const ok = buyCountry(99999, world, 'argentina', 2)
     expect(ok.success).toBe(true)
     if (ok.success) {
       expect(ok.world.cities).toContain('cordoba')
-      expect(ok.balance).toBe(5000 - countryTicket('argentina'))
+      expect(ok.balance).toBe(99999 - countryTicket('argentina'))
     }
-    expect(buyCountry(5000, world, 'brasil', 2)).toMatchObject({ success: false, reason: 'already-owned' })
+    expect(buyCountry(99999, world, 'brasil', 2)).toMatchObject({ success: false, reason: 'already-owned' })
   })
   it('cidade só depois do país', () => {
     expect(buyCity(99999, defaultWorld(), 'buenos-aires', 9)).toMatchObject({ success: false, reason: 'country-locked' })
