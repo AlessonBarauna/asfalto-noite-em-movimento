@@ -7,6 +7,7 @@ import { SAVE_KEY, SaveStore, insertScore, type PlayerVehicleId } from './engine
 import { preloadSupercar } from './game/supercar'
 import type { ScenarioId } from './game/scenarios'
 import { RaceGame, type RaceResult } from './game/race-game'
+import { applyRun, cityMultiplier, cityUnlockId, rankLevel, rankLabel, requiredRank, vehicleUnlockId, xpForRun, type RunSummary } from './game/career'
 import { calculateRacePayout, purchaseVehicle as buyVehicle, purchasePaint as buyPaint, purchaseWheels as buyWheels, purchaseTint as buyTint, purchaseSpoiler as buySpoiler, purchaseSuspension as buySuspension, purchaseExhaust as buyExhaust, purchaseHeadlights as buyHeadlights } from './game/economy'
 import { tuning } from './game/tuning'
 import { TouchControls } from './ui/touch'
@@ -33,7 +34,9 @@ async function boot(): Promise<void> {
     resume: () => resumeRun(),
     restart: () => startRun(),
     toTitle: () => { bankRun(); game?.toTitle(); showTitleScreen() },
-    selectScenario: id => { save.update({ scenario: id }); game?.setScenario(save.data.scenario as ScenarioId); ui.setScenario(save.data.scenario) },
+    selectScenario: id => {
+      if (rankGate(cityUnlockId(id))) return
+      save.update({ scenario: id }); game?.setScenario(save.data.scenario as ScenarioId); ui.setScenario(save.data.scenario) },
     setSensitivity: value => { save.update({ sensitivity: value }); input.sensitivity = save.data.sensitivity; ui.setSensitivity(save.data.sensitivity) },
     openLeaderboard: () => { ui.showLeaderboard(save.data.leaderboard) },
     openGarage: () => { ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights) },
@@ -44,9 +47,9 @@ async function boot(): Promise<void> {
       ui.showGarage(model, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights)
     },
     purchaseVehicle: model => {
-      const purchase = buyVehicle(save.data.credits, save.data.unlockedVehicles, model)
+      const purchase = buyVehicle(save.data.credits, save.data.unlockedVehicles, model, careerRank())
       if (!purchase.success) {
-        ui.toast(purchase.reason === 'already-owned' ? 'VEÍCULO JÁ DESBLOQUEADO' : 'CRÉDITOS INSUFICIENTES')
+        ui.toast(purchase.reason === 'already-owned' ? 'VEÍCULO JÁ DESBLOQUEADO' : purchase.reason === 'rank-locked' ? `REQUER PATENTE ${requiredRank(vehicleUnlockId(model))}` : 'CRÉDITOS INSUFICIENTES')
         return false
       }
       save.update({ credits: purchase.balance, unlockedVehicles: purchase.unlockedVehicles })
@@ -60,7 +63,7 @@ async function boot(): Promise<void> {
       game?.setPlayerVehicle(save.data.playerVehicle, paint, save.data.playerWheels, save.data.playerTint, save.data.playerSpoiler, save.data.playerSuspension, save.data.playerExhaust, save.data.playerHeadlights)
       ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights)
     },
-    purchasePaint: paint => {
+    purchasePaint: paint => { if (rankGate('garage-paint')) return false;
       const purchase = buyPaint(save.data.credits, save.data.unlockedPaints, paint)
       if (!purchase.success) {
         ui.toast(purchase.reason === 'already-owned' ? 'PINTURA JÁ DESBLOQUEADA' : 'CRÉDITOS INSUFICIENTES')
@@ -78,7 +81,7 @@ async function boot(): Promise<void> {
       game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, id, save.data.playerTint, save.data.playerSpoiler, save.data.playerSuspension, save.data.playerExhaust, save.data.playerHeadlights)
       ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights)
     },
-    purchaseWheels: id => {
+    purchaseWheels: id => { if (rankGate('garage-paint')) return false;
       const result = buyWheels(save.data.credits, save.data.unlockedWheels, id)
       if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'RODA JÁ DESBLOQUEADA' : 'CRÉDITOS INSUFICIENTES'); return false }
       save.update({ credits: result.balance, unlockedWheels: result.unlocked, playerWheels: id })
@@ -92,7 +95,7 @@ async function boot(): Promise<void> {
       game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, id, save.data.playerSpoiler, save.data.playerSuspension, save.data.playerExhaust, save.data.playerHeadlights)
       ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights)
     },
-    purchaseTint: id => {
+    purchaseTint: id => { if (rankGate('garage-tint')) return false;
       const result = buyTint(save.data.credits, save.data.unlockedTints, id)
       if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'INSULFILM JÁ DESBLOQUEADO' : 'CRÉDITOS INSUFICIENTES'); return false }
       save.update({ credits: result.balance, unlockedTints: result.unlocked, playerTint: id })
@@ -101,13 +104,13 @@ async function boot(): Promise<void> {
       ui.toast('INSULFILM COMPRADO E APLICADO'); return true
     },
     selectSpoiler: id => { if (!save.data.unlockedSpoilers.includes(id)) return; save.update({ playerSpoiler: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, id, save.data.playerSuspension, save.data.playerExhaust, save.data.playerHeadlights); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights) },
-    purchaseSpoiler: id => { const result = buySpoiler(save.data.credits, save.data.unlockedSpoilers, id); if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'AEROFÓLIO JÁ DESBLOQUEADO' : 'CRÉDITOS INSUFICIENTES'); return false }; save.update({ credits: result.balance, unlockedSpoilers: result.unlocked, playerSpoiler: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, id, save.data.playerSuspension, save.data.playerExhaust, save.data.playerHeadlights); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights); ui.toast('AEROFÓLIO COMPRADO E INSTALADO'); return true },
+    purchaseSpoiler: id => { if (rankGate('garage-tint')) return false; const result = buySpoiler(save.data.credits, save.data.unlockedSpoilers, id); if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'AEROFÓLIO JÁ DESBLOQUEADO' : 'CRÉDITOS INSUFICIENTES'); return false }; save.update({ credits: result.balance, unlockedSpoilers: result.unlocked, playerSpoiler: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, id, save.data.playerSuspension, save.data.playerExhaust, save.data.playerHeadlights); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights); ui.toast('AEROFÓLIO COMPRADO E INSTALADO'); return true },
     selectSuspension: id => { if (!save.data.unlockedSuspensions.includes(id)) return; save.update({ playerSuspension: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, save.data.playerSpoiler, id, save.data.playerExhaust, save.data.playerHeadlights); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights) },
-    purchaseSuspension: id => { const result = buySuspension(save.data.credits, save.data.unlockedSuspensions, id); if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'SUSPENSÃO JÁ DESBLOQUEADA' : 'CRÉDITOS INSUFICIENTES'); return false }; save.update({ credits: result.balance, unlockedSuspensions: result.unlocked, playerSuspension: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, save.data.playerSpoiler, id, save.data.playerExhaust, save.data.playerHeadlights); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights); ui.toast('SUSPENSÃO COMPRADA E INSTALADA'); return true },
+    purchaseSuspension: id => { if (rankGate('garage-performance')) return false; const result = buySuspension(save.data.credits, save.data.unlockedSuspensions, id); if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'SUSPENSÃO JÁ DESBLOQUEADA' : 'CRÉDITOS INSUFICIENTES'); return false }; save.update({ credits: result.balance, unlockedSuspensions: result.unlocked, playerSuspension: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, save.data.playerSpoiler, id, save.data.playerExhaust, save.data.playerHeadlights); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights); ui.toast('SUSPENSÃO COMPRADA E INSTALADA'); return true },
     selectExhaust: id => { if (!save.data.unlockedExhausts.includes(id)) return; save.update({ playerExhaust: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, save.data.playerSpoiler, save.data.playerSuspension, id, save.data.playerHeadlights); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, id, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights) },
-    purchaseExhaust: id => { const result = buyExhaust(save.data.credits, save.data.unlockedExhausts, id); if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'ESCAPAMENTO JÁ DESBLOQUEADO' : 'CRÉDITOS INSUFICIENTES'); return false }; save.update({ credits: result.balance, unlockedExhausts: result.unlocked, playerExhaust: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, save.data.playerSpoiler, save.data.playerSuspension, id, save.data.playerHeadlights); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, id, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights); ui.toast('ESCAPAMENTO COMPRADO E INSTALADO'); return true },
+    purchaseExhaust: id => { if (rankGate('garage-performance')) return false; const result = buyExhaust(save.data.credits, save.data.unlockedExhausts, id); if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'ESCAPAMENTO JÁ DESBLOQUEADO' : 'CRÉDITOS INSUFICIENTES'); return false }; save.update({ credits: result.balance, unlockedExhausts: result.unlocked, playerExhaust: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, save.data.playerSpoiler, save.data.playerSuspension, id, save.data.playerHeadlights); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, id, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights); ui.toast('ESCAPAMENTO COMPRADO E INSTALADO'); return true },
     selectHeadlights: id => { if (!save.data.unlockedHeadlights.includes(id)) return; save.update({ playerHeadlights: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, save.data.playerSpoiler, save.data.playerSuspension, save.data.playerExhaust, id); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, id, save.data.unlockedHeadlights) },
-    purchaseHeadlights: id => { const result = buyHeadlights(save.data.credits, save.data.unlockedHeadlights, id); if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'FARÓIS JÁ DESBLOQUEADOS' : 'CRÉDITOS INSUFICIENTES'); return false }; save.update({ credits: result.balance, unlockedHeadlights: result.unlocked, playerHeadlights: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, save.data.playerSpoiler, save.data.playerSuspension, save.data.playerExhaust, id); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, id, save.data.unlockedHeadlights); ui.toast('FARÓIS COMPRADOS E INSTALADOS'); return true },
+    purchaseHeadlights: id => { if (rankGate('garage-performance')) return false; const result = buyHeadlights(save.data.credits, save.data.unlockedHeadlights, id); if (!result.success) { ui.toast(result.reason === 'already-owned' ? 'FARÓIS JÁ DESBLOQUEADOS' : 'CRÉDITOS INSUFICIENTES'); return false }; save.update({ credits: result.balance, unlockedHeadlights: result.unlocked, playerHeadlights: id }); game?.setPlayerVehicle(save.data.playerVehicle, save.data.playerPaint, save.data.playerWheels, save.data.playerTint, save.data.playerSpoiler, save.data.playerSuspension, save.data.playerExhaust, id); ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, id, save.data.unlockedHeadlights); ui.toast('FARÓIS COMPRADOS E INSTALADOS'); return true },
   })
   activeUI = ui
   const applySettings = () => audio.setVolumes(save.data.musicVolume, save.data.sfxVolume, save.data.muted)
@@ -126,15 +129,33 @@ async function boot(): Promise<void> {
   /** Parcial já pago da corrida em andamento (créditos e metros), para não pagar duas vezes. */
   let bankedCredits = 0
   let bankedDistance = 0
+  const careerRank = () => rankLevel(save.data.career.xp)
+  /** Mostra o aviso e devolve true quando a patente atual ainda não libera o item. */
+  function rankGate(unlockId: string): boolean {
+    const need = requiredRank(unlockId)
+    if (careerRank() >= need) return false
+    ui.toast(`REQUER PATENTE ${need}`)
+    return true
+  }
+  /** XP já creditado de uma corrida em andamento, para não contar duas vezes ao pausar/sair. */
+  let bankedXp = 0
+  const summaryOf = (snap: { distance: number; nearMisses: number; carsJumped: number; hits: number; elapsed: number }): RunSummary => ({
+    distance: snap.distance, nearMisses: snap.nearMisses, carsJumped: snap.carsJumped, hits: snap.hits, seconds: snap.elapsed, city: game?.city ?? 'cidade', unranked: tuning.unranked,
+  })
   /** Guarda o progresso parcial (créditos e distância) para não perder nada se a aba fechar no meio da corrida. */
   function bankRun(): void {
     if (!game || tuning.unranked) return
     if (game.mode !== 'playing' && game.mode !== 'paused') return
     const snap = game.snapshot()
     bankProgress(snap.distance, snap.nearMisses)
+    const gain = Math.max(0, xpForRun(summaryOf(snap)).total - bankedXp)
+    if (gain > 0) {
+      save.update({ career: { ...save.data.career, xp: save.data.career.xp + gain } })
+      bankedXp += gain
+    }
   }
   function bankProgress(distance: number, nearMisses: number): number {
-    const earned = calculateRacePayout(distance, nearMisses).credits
+    const earned = Math.floor(calculateRacePayout(distance, nearMisses).credits * cityMultiplier(game?.city ?? 'cidade').credits)
     const credits = Math.max(0, earned - bankedCredits)
     const meters = Math.max(0, distance - bankedDistance)
     if (credits > 0 || meters > 0) {
@@ -154,12 +175,15 @@ async function boot(): Promise<void> {
     ui.setScenario(save.data.scenario)
     ui.setSensitivity(save.data.sensitivity)
     ui.setDistanceStats(save.data.bestDistance, save.data.totalDistance)
+    ui.setCareer(save.data.career.xp)
   }
   function startRun(): void {
     if (!game) return
     bankRun()
     bankedCredits = 0
     bankedDistance = 0
+    bankedXp = 0
+    game.setTrafficBoost(1)
     lastLevel = 1
     audio.unlock()
     game.start()
@@ -235,18 +259,52 @@ async function boot(): Promise<void> {
     const previousBest = bestScore()
     let nextBest = previousBest
     let payout = 0
+    let report: ReturnType<typeof applyRun> | null = null
     if (!result.unranked) {
       const entry = { name: save.data.playerName, score: result.score, seconds: result.seconds, at: Date.now() }
       const inserted = insertScore(save.data.leaderboard, entry)
       payout = bankProgress(result.distance, result.nearMisses) // paga só o que ainda não foi guardado
-      save.update({ leaderboard: inserted.board, completedRuns: save.data.completedRuns + 1 })
+      // carreira: soma só o que ainda não foi creditado e avalia o contrato aceito
+      const before = { ...save.data.career, xp: Math.max(0, save.data.career.xp - bankedXp) }
+      report = applyRun(before, { distance: result.distance, nearMisses: result.nearMisses, carsJumped: result.carsJumped, hits: result.hits, seconds: result.seconds, city: result.city })
+      payout += report.contractCredits
+      save.update({
+        leaderboard: inserted.board,
+        completedRuns: save.data.completedRuns + 1,
+        career: report.career,
+        credits: save.data.credits + report.contractCredits,
+        lifetimeCredits: save.data.lifetimeCredits + report.contractCredits,
+      })
+      bankedXp = 0
       nextBest = Math.max(previousBest, inserted.board[0]?.score ?? 0)
     }
+    ui.setCareer(save.data.career.xp)
+    ui.setResultCareer(report)
     ui.showResults(result.score, result.distance, result.nearMisses, result.unranked ? previousBest : nextBest, result.unranked, payout, save.data.credits)
+    if (report && report.rankAfter > report.rankBefore) ui.toast(`PATENTE ${rankLabel(save.data.career.xp).toUpperCase()}`)
   }
 
   document.addEventListener('visibilitychange', () => { if (document.hidden) { pauseRun(); bankRun() } })
   window.addEventListener('pagehide', bankRun)
+  // Garagem: arraste para girar o carro, roda do mouse/pinça para zoom, duplo clique restaura a vista.
+  let orbit: { id: number; x: number; y: number } | null = null
+  const inGarageView = (target: EventTarget | null) => ui.screen === 'garage' && !(target as HTMLElement | null)?.closest?.('.garage-modal, button, input')
+  window.addEventListener('pointerdown', event => {
+    if (!inGarageView(event.target)) return
+    orbit = { id: event.pointerId, x: event.clientX, y: event.clientY }
+  })
+  window.addEventListener('pointermove', event => {
+    if (!orbit || event.pointerId !== orbit.id) return
+    currentGame.garageOrbit(event.clientX - orbit.x, event.clientY - orbit.y)
+    orbit.x = event.clientX
+    orbit.y = event.clientY
+  })
+  const endOrbit = (event: PointerEvent) => { if (orbit && event.pointerId === orbit.id) orbit = null }
+  window.addEventListener('pointerup', endOrbit)
+  window.addEventListener('pointercancel', endOrbit)
+  window.addEventListener('wheel', event => { if (inGarageView(event.target)) currentGame.garageZoom(event.deltaY) }, { passive: true })
+  window.addEventListener('dblclick', event => { if (inGarageView(event.target)) currentGame.resetGarageView() })
+  window.addEventListener('keydown', event => { if (event.code === 'Escape' && (ui.screen === 'garage' || ui.screen === 'leaderboard')) ui.goBack() })
   window.addEventListener('game:pause', pauseRun)
   ;(window as unknown as { __game: unknown }).__game = { game: currentGame, ui, input, save }
 }
