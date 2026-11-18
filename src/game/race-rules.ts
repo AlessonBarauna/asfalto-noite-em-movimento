@@ -93,10 +93,10 @@ export function levelForDistance(distanceMeters: number): number {
   return 1 + Math.floor(Math.max(0, Number.isFinite(distanceMeters) ? distanceMeters : 0) / 600)
 }
 
-/** Velocidade de cruzeiro (m/s). Cresce de forma logarítmica e nunca para: ~58 km/h no início, ~240 km/h aos 100 km. */
+/** Velocidade de cruzeiro (m/s). Sem teto: cresce rápido no começo (log) e segue subindo sempre (linear). ~58 km/h no início, ~330 km/h aos 50 km, ~490 km/h aos 100 km. */
 export function cruiseSpeed(distanceMeters: number): number {
   const d = Math.max(0, Number.isFinite(distanceMeters) ? distanceMeters : 0)
-  return 16 + 9.5 * Math.log1p(d / 450)
+  return 16 + 9.5 * Math.log1p(d / 450) + d * 0.0007
 }
 
 /** Intervalo entre veículos e velocidade relativa do tráfego conforme a distância. */

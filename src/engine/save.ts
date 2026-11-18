@@ -3,6 +3,7 @@
  * it is easy to migrate. Corrupt or foreign data falls back to defaults instead of crashing.
  */
 import { defaultCareer, parseCareer, type CareerState } from '../game/career/career-state'
+import { cityById, defaultWorld, parseWorld, FIRST_CITY, type WorldState } from '../game/career/world'
 
 export type Locale = 'en' | 'zh-CN'
 export type Quality = 'low' | 'medium' | 'high'
@@ -43,7 +44,12 @@ export type SaveData = {
   credits: number
   lifetimeCredits: number
   completedRuns: number
+  /** Tema visual da cidade escolhida (derivado de `city`). */
   scenario: string
+  /** Cidade do mapa-múndi escolhida para correr. */
+  city: string
+  /** Países e cidades já abertos pelo jogador. */
+  world: WorldState
   bestDistance: number
   totalDistance: number
   /** Patente, XP, contratos e recordes por cidade (veja src/game/career). */
@@ -88,6 +94,8 @@ export function defaultSave(): SaveData {
     credits: 0,
     lifetimeCredits: 0,
     scenario: 'cidade',
+    city: FIRST_CITY,
+    world: defaultWorld(),
     bestDistance: 0,
     totalDistance: 0,
     career: defaultCareer(),
@@ -182,7 +190,11 @@ export function parseSave(raw: string | null): SaveData {
     credits: Number.isFinite(data.credits) ? Math.max(0, Math.floor(data.credits as number)) : base.credits,
     lifetimeCredits: Number.isFinite(data.lifetimeCredits) ? Math.max(0, Math.floor(data.lifetimeCredits as number)) : base.lifetimeCredits,
     completedRuns: Number.isFinite(data.completedRuns) ? Math.max(0, Math.floor(data.completedRuns as number)) : base.completedRuns,
-    scenario: data.scenario === 'serra' || data.scenario === 'deserto' ? data.scenario : 'cidade',
+    ...(() => {
+      const world = parseWorld(data.world)
+      const city = typeof data.city === 'string' && world.cities.includes(data.city) ? data.city : FIRST_CITY
+      return { world, city, scenario: cityById(city)?.theme ?? 'cidade' }
+    })(),
     bestDistance: Number.isFinite(data.bestDistance) ? Math.max(0, data.bestDistance as number) : 0,
     totalDistance: Number.isFinite(data.totalDistance) ? Math.max(0, data.totalDistance as number) : 0,
     career: parseCareer(data.career),

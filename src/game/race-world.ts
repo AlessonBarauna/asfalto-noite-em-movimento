@@ -53,7 +53,7 @@ export class RaceWorld {
   private scroll = 0
 
   constructor(private readonly gl: THREE.WebGLRenderer, shadowMapSize = 1024) {
-    this.scene.fog = new THREE.FogExp2('#1a1b26', 0.0062)
+    this.scene.fog = new THREE.FogExp2('#1a1b26', 0.0036)
     this.scene.add(this.sky.mesh)
     this.facadeMaterials = this.facades.map(f => new THREE.MeshStandardMaterial({
       color: '#ffffff', map: f.map, emissiveMap: f.emissive, emissive: '#ffffff', emissiveIntensity: 0.62, roughness: 0.62, metalness: 0.18,

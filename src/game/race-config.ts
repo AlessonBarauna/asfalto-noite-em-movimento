@@ -11,9 +11,9 @@ export const DEFAULT_RACE_CONFIG = {
   minTrafficInterval: 0.48,
   spawnDistance: 176,
   trafficSpeedFactor: 1.28,
-  boostDuration: 1.55,
-  boostImpulse: 17,
-  boostCooldown: 3.8,
+  boostDuration: 4.2,
+  boostImpulse: 19,
+  boostCooldown: 7.5,
   startingLives: 3,
 } as const
 

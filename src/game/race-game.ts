@@ -334,7 +334,7 @@ export class RaceGame {
     const dt = Math.max(0, frameSeconds)
     const follow = 1 - Math.exp(-5.8 * dt)
     this.cameraX += (this.x - this.cameraX) * follow
-    const speed01 = this.mode === 'title' ? 0 : THREE.MathUtils.clamp((this.speed - 16) / 40, 0, 1)
+    const speed01 = this.mode === 'title' ? 0 : THREE.MathUtils.clamp((this.speed - 16) / 75, 0, 1)
     const boosting = this.mode === 'playing' && this.boostTimer > 0
     this.fovBoost = THREE.MathUtils.damp(this.fovBoost, speed01 * 9 + (boosting ? 7 : 0), 4, dt)
     if (Math.abs(this.camera.fov - (56 + this.fovBoost)) > 0.01) {

@@ -3,8 +3,7 @@ import type { PlayerVehicleId, ScoreEntry } from '../engine/save'
 import { PAINT_OPTIONS, VEHICLE_PRICES, WHEEL_OPTIONS, TINT_OPTIONS, SPOILER_OPTIONS, SUSPENSION_OPTIONS, EXHAUST_OPTIONS, HEADLIGHT_OPTIONS } from '../game/economy'
 import { BRAZILIAN_TRAFFIC_MODELS } from '../game/traffic-vehicles'
 import { SUPERCAR } from '../game/supercar'
-import { SCENARIOS } from '../game/scenarios'
-import { rankStatus, nextUnlocks, requiredRank, cityUnlockId, vehicleUnlockId, type RunReport } from '../game/career'
+import { rankStatus, nextUnlocks, requiredRank, vehicleUnlockId, STAGES, COUNTRIES, stageRank, countryTicket, cityTicket, cityById, countryOfCity, type RunReport, type WorldState } from '../game/career'
 
 export type RaceUiState = {
   score: number
@@ -41,12 +40,15 @@ export type RaceUiActions = {
   selectHeadlights(id: string): void
   purchaseHeadlights(id: string): boolean
   openGarage(): void
-  selectScenario(id: string): void
+  openWorld(): void
+  selectCity(id: string): void
+  buyCountry(id: string): void
+  buyCity(id: string): void
   setSensitivity(value: number): void
 }
 
 export class RaceUI {
-  screen: 'boot' | 'title' | 'hud' | 'pause' | 'results' | 'leaderboard' | 'garage' = 'boot'
+  screen: 'boot' | 'title' | 'hud' | 'pause' | 'results' | 'leaderboard' | 'garage' | 'world' = 'boot'
   private readonly root: HTMLElement
   private noticeTimer = 0
   private returnAfterBoard: RaceUI['screen'] = 'title'
@@ -116,13 +118,6 @@ export class RaceUI {
     if (bar) bar.style.transform = `scaleX(${Math.max(0, Math.min(1, status.progress))})`
     const next = nextUnlocks(status.rank.level)
     this.set('.rank-next', next.length ? 'PRÓXIMA PATENTE ABRE: ' + next.map(entry => entry.label.toUpperCase()).join(' · ') : 'TODAS AS PATENTES ALCANÇADAS · SOME ESTRELAS DE LENDA')
-    this.root.querySelectorAll<HTMLButtonElement>('[data-scenario]').forEach(btn => {
-      const need = requiredRank(cityUnlockId(btn.dataset.scenario ?? ''))
-      const locked = this.rank < need
-      btn.classList.toggle('is-locked', locked)
-      btn.setAttribute('aria-disabled', String(locked))
-      btn.dataset.lock = locked ? `PATENTE ${need}` : ''
-    })
   }
 
   /** Marca na garagem o que ainda exige patente maior (o botão fica desativado e mostra a patente). */
@@ -289,8 +284,13 @@ export class RaceUI {
     if (buyPaint?.dataset.buyPaint) { this.actions.purchasePaint(buyPaint.dataset.buyPaint); return }
     const paint = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-paint]')
     if (paint?.dataset.paint) { this.actions.selectPaint(paint.dataset.paint); return }
-    const scenario = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-scenario]')
-    if (scenario?.dataset.scenario) { this.actions.selectScenario(scenario.dataset.scenario); return }
+    const target = event.target as HTMLElement
+    const worldCity = target.closest<HTMLButtonElement>('[data-world-city]')
+    if (worldCity?.dataset.worldCity) { this.actions.selectCity(worldCity.dataset.worldCity); return }
+    const worldBuyCountry = target.closest<HTMLButtonElement>('[data-world-buy-country]')
+    if (worldBuyCountry?.dataset.worldBuyCountry) { this.actions.buyCountry(worldBuyCountry.dataset.worldBuyCountry); return }
+    const worldBuyCity = target.closest<HTMLButtonElement>('[data-world-buy-city]')
+    if (worldBuyCity?.dataset.worldBuyCity) { this.actions.buyCity(worldBuyCity.dataset.worldBuyCity); return }
     const buy = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-buy-vehicle]')
     if (buy?.dataset.buyVehicle) {
       this.actions.purchaseVehicle(buy.dataset.buyVehicle as PlayerVehicleId)
@@ -312,17 +312,45 @@ export class RaceUI {
       case 'leaderboard': this.actions.openLeaderboard(); break
       case 'garage': this.actions.openGarage(); break
       case 'garage-back': this.show(this.returnAfterGarage); break
+      case 'world': this.actions.openWorld(); break
+      case 'world-back': this.show('title'); break
       case 'back': this.show(this.returnAfterBoard); break
     }
   }
 
-  /** Highlights the chosen scenario on the title screen. */
-  setScenario(id: string): void {
-    this.root.querySelectorAll<HTMLElement>('[data-scenario]').forEach(btn => {
-      const on = btn.dataset.scenario === id
-      btn.classList.toggle('is-selected', on)
-      btn.setAttribute('aria-pressed', String(on))
-    })
+  /** Mostra na tela de título a cidade escolhida no mapa-múndi. */
+  setDestination(cityId: string): void {
+    const city = cityById(cityId)
+    const country = countryOfCity(cityId)
+    this.set('.dest-name', `${country?.flag ?? ''} ${city?.name ?? 'São Paulo'}`.trim())
+    this.set('.dest-sub', `${country?.name ?? 'Brasil'} · ABRIR MAPA`)
+  }
+
+  /** Monta o mapa-múndi: fases liberadas pela patente, países com passagem e cidades. */
+  showWorld(world: WorldState, credits: number, rank: number, currentCity: string): void {
+    const fmt = (value: number) => value.toLocaleString('pt-BR')
+    const stages = STAGES.map(stage => {
+      const open = rank >= stageRank(stage.id)
+      const countries = COUNTRIES.filter(country => country.stage === stage.id).map(country => {
+        const owned = world.countries.includes(country.id)
+        const head = `<div class="wc-head"><span class="wc-flag">${country.flag}</span><b>${country.name}</b></div>`
+        if (!owned) {
+          const price = countryTicket(country.id)
+          const disabled = !open || credits < price
+          return `<div class="wc-card is-closed">${head}<button class="wc-buy" data-world-buy-country="${country.id}" ${open ? '' : 'disabled'} ${disabled && open ? 'data-poor="1"' : ''}>${open ? `PASSAGEM · ${fmt(price)} CR` : `🔒 PATENTE ${stageRank(stage.id)}`}</button></div>`
+        }
+        const cities = country.cities.map(city => {
+          if (world.cities.includes(city.id)) return `<button class="wc-city ${city.id === currentCity ? 'is-current' : ''}" data-world-city="${city.id}">${city.name}</button>`
+          return `<button class="wc-city is-buy" data-world-buy-city="${city.id}">${city.name} <small>${fmt(cityTicket(city.id))} CR</small></button>`
+        }).join('')
+        return `<div class="wc-card is-open">${head}<div class="wc-cities">${cities}</div></div>`
+      }).join('')
+      return `<section class="ws-stage ${open ? '' : 'is-locked'}"><h3><span>FASE ${stage.id}</span> ${stage.name}${open ? '' : ` <em>🔒 PATENTE ${stageRank(stage.id)}</em>`}</h3><div class="ws-grid">${countries}</div></section>`
+    }).join('')
+    this.set('.world-credits', fmt(credits))
+    const list = this.root.querySelector<HTMLElement>('.world-list')
+    if (list) list.innerHTML = stages
+    this.show('world')
   }
 
   /** Keeps every sensitivity slider (title and pause) in sync. */
@@ -340,6 +368,7 @@ export class RaceUI {
   goBack(): void {
     if (this.screen === 'garage') this.show(this.returnAfterGarage)
     else if (this.screen === 'leaderboard') this.show(this.returnAfterBoard)
+    else if (this.screen === 'world') this.show('title')
   }
 
   private set(selector: string, value: string): void {
@@ -360,7 +389,7 @@ export class RaceUI {
     <div class="rank-card"><div class="rank-top"><b class="rank-name">Novato</b><span class="rank-level">PATENTE 1</span><span class="rank-xp">0 / 250 XP</span></div><div class="rank-bar"><i></i></div><small class="rank-next"></small></div>
     <p class="title-copy">Uma noite. Três faixas. Tráfego sem fim. Desvie dos carros, acelere quando abrir espaço e veja até onde a cidade te leva.</p>
     <label class="pilot-input"><span>NOME NO PLACAR</span><input class="driver-name" name="pilot" type="text" maxlength="16" value="PILOTO" autocomplete="nickname" aria-label="Nome do piloto no placar" /></label>
-    <div class="scenario-picker"><span>CENÁRIO</span><div class="scenario-row">${SCENARIOS.map(s => `<button class="scenario-btn" data-scenario="${s.id}" aria-pressed="false"><b>${s.label}</b><small>${s.blurb}</small></button>`).join('')}</div></div>
+    <button class="dest-btn" data-action="world"><span>DESTINO</span><b class="dest-name">🇧🇷 São Paulo</b><small class="dest-sub">Brasil · ABRIR MAPA</small></button>
     <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
     <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
   </div>
@@ -382,6 +411,7 @@ export class RaceUI {
   <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="payout-panel"><span>RECOMPENSA DA CORRIDA</span><strong class="result-credits">+0 CR</strong><small>SALDO: <b class="result-balance">0</b> CR</small></div><div class="result-career"></div><div class="modal-tag result-note"></div>
   <div class="modal-menu"><button class="game-btn primary" data-action="restart">${copy['results.retry']}</button><button class="game-btn" data-action="leaderboard">${copy['results.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
+<section class="screen screen-modal screen-world" data-screen="world"><button class="back-btn" data-action="world-back">← VOLTAR</button><div class="world-wrap"><header class="world-head"><div class="eyebrow">ASFALTO · MAPA-MÚNDI</div><h2>Para onde vai a madrugada?</h2><p>A patente libera a região; a passagem libera o país. SALDO <b><span class="world-credits">0</span> CR</b></p></header><div class="world-list"></div></div></section>
 <section class="screen screen-modal" data-screen="garage"><button class="back-btn" data-action="garage-back">← VOLTAR</button><div class="garage-hint">ARRASTE PARA GIRAR O CARRO · RODA DO MOUSE PARA ZOOM · DUPLO CLIQUE RESTAURA</div><div class="modal garage-modal"><div class="eyebrow">ASFALTO · GARAGEM</div><h2>ESCOLHA SEU CARRO</h2><p>Compre novos veículos com os créditos conquistados nas corridas. O Gol G5 continua sendo seu carro inicial.</p><div class="garage-wallet">SALDO DISPONÍVEL: <strong class="garage-balance"></strong> CR</div><div class="garage-notice" aria-live="polite"></div><h3 class="garage-section-title">PINTURA</h3><div class="paint-grid"></div><h3 class="garage-section-title">RODAS E AROS</h3><div class="wheel-grid accessory-grid"></div><h3 class="garage-section-title">INSULFILM</h3><div class="tint-grid accessory-grid"></div><h3 class="garage-section-title">AEROFÓLIO</h3><div class="spoiler-grid accessory-grid"></div><h3 class="garage-section-title">SUSPENSÃO</h3><div class="suspension-grid accessory-grid"></div><h3 class="garage-section-title">ESCAPAMENTO</h3><div class="exhaust-grid accessory-grid"></div><h3 class="garage-section-title">FARÓIS</h3><div class="headlight-grid accessory-grid"></div><h3 class="garage-section-title">VEÍCULOS</h3><div class="garage-grid"></div><div class="modal-menu"><button class="game-btn" data-action="garage-back">VOLTAR</button></div></div></section>
 <section class="screen screen-modal" data-screen="leaderboard"><button class="back-btn" data-action="back">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · RECORDES</div><h2>${copy['leaderboard.title']}</h2><div class="board-source">${copy['leaderboard.local']}</div><ol class="score-list"><li class="score-empty">${copy['leaderboard.empty']}</li></ol>
   <div class="modal-menu"><button class="game-btn" data-action="back">${copy['menu.back']}</button></div>
