@@ -2,6 +2,8 @@
  * Versioned local save. Everything the player keeps between sessions lives in one JSON record so
  * it is easy to migrate. Corrupt or foreign data falls back to defaults instead of crashing.
  */
+import { defaultCareer, parseCareer, type CareerState } from '../game/career/career-state'
+
 export type Locale = 'en' | 'zh-CN'
 export type Quality = 'low' | 'medium' | 'high'
 
@@ -44,6 +46,8 @@ export type SaveData = {
   scenario: string
   bestDistance: number
   totalDistance: number
+  /** Patente, XP, contratos e recordes por cidade (veja src/game/career). */
+  career: CareerState
   leaderboard: ScoreEntry[]
 }
 
@@ -65,7 +69,7 @@ export function defaultSave(): SaveData {
     reducedMotion: false,
     tutorialDone: false,
     playerName: 'PILOTO',
-    playerVehicle: 'supercar',
+    playerVehicle: 'gol-g5',
     playerPaint: '#4a5052',
     unlockedPaints: ['#4a5052'],
     playerWheels: 'alloy',
@@ -80,12 +84,13 @@ export function defaultSave(): SaveData {
     unlockedExhausts: ['stock'],
     playerHeadlights: 'halogen',
     unlockedHeadlights: ['halogen'],
-    unlockedVehicles: ['gol-g5', 'supercar'],
+    unlockedVehicles: ['gol-g5'],
     credits: 0,
     lifetimeCredits: 0,
     scenario: 'cidade',
     bestDistance: 0,
     totalDistance: 0,
+    career: defaultCareer(),
     completedRuns: 0,
     leaderboard: [],
   }
@@ -112,7 +117,7 @@ export function parseSave(raw: string | null): SaveData {
       ? [...new Set(data.unlockedVehicles.filter((id): id is PlayerVehicleId => VEHICLES.includes(id as PlayerVehicleId)))]
       : ['gol-g5']
   if (!unlockedVehicles.includes('gol-g5')) unlockedVehicles.unshift('gol-g5')
-  if (!unlockedVehicles.includes('supercar')) unlockedVehicles.push('supercar') // free flagship car for everyone
+  // O esportivo agora é recompensa da patente 10; quem já o tinha em saves anteriores continua com ele.
   const unlockedPaints = typeof data.version === 'number' && data.version >= 5 && Array.isArray(data.unlockedPaints)
     ? [...new Set(data.unlockedPaints.filter((paint): paint is string => typeof paint === 'string' && /^#[0-9a-fA-F]{6}$/.test(paint)))]
     : ['#4a5052']
@@ -180,6 +185,7 @@ export function parseSave(raw: string | null): SaveData {
     scenario: data.scenario === 'serra' || data.scenario === 'deserto' ? data.scenario : 'cidade',
     bestDistance: Number.isFinite(data.bestDistance) ? Math.max(0, data.bestDistance as number) : 0,
     totalDistance: Number.isFinite(data.totalDistance) ? Math.max(0, data.totalDistance as number) : 0,
+    career: parseCareer(data.career),
     leaderboard: board
       .filter((e): e is ScoreEntry => !!e && typeof e === 'object' && typeof (e as ScoreEntry).name === 'string' && Number.isFinite((e as ScoreEntry).score))
       .map(e => ({ name: e.name.slice(0, 16), score: Math.max(0, Math.floor(e.score)), seconds: Number.isFinite(e.seconds) ? e.seconds : 0, at: Number.isFinite(e.at) ? e.at : 0 }))

@@ -94,3 +94,24 @@
 .screen-modal[data-screen="garage"]:active{cursor:grabbing}
 .screen-modal[data-screen="garage"] .garage-modal{cursor:auto;touch-action:pan-y}
 @media(max-width:760px){.screen-modal[data-screen="garage"] .back-btn{left:20px;top:auto;bottom:18px}.garage-hint{display:none}}
+
+/* Patente, bloqueios e resumo de carreira */
+.rank-card{display:flex;flex-direction:column;gap:6px;width:min(480px,100%);padding:10px 12px;border-left:2px solid var(--accent);background:#0a111899}
+.rank-top{display:flex;align-items:baseline;gap:10px}
+.rank-name{font-size:15px;letter-spacing:.12em;color:#f6ecd8;text-transform:uppercase}
+.rank-level{font-size:8px;font-weight:800;letter-spacing:.18em;color:#ffb36e}
+.rank-xp{margin-left:auto;font-size:9px;letter-spacing:.12em;color:#9aa8ae}
+.rank-bar{height:4px;background:#ffffff14;overflow:hidden}
+.rank-bar i{display:block;height:100%;background:linear-gradient(90deg,#ff9a4a,#ffd089);transform-origin:left;transform:scaleX(0);transition:transform .5s}
+.rank-next{font-size:8px;letter-spacing:.14em;color:#8e9ca3}
+.scenario-btn.is-locked{opacity:.5;border-left-color:#3a444b}
+.scenario-btn.is-locked::after{content:"🔒 " attr(data-lock);font-size:8px;letter-spacing:.14em;color:#ffb36e}
+.is-rank-locked{opacity:.45;cursor:not-allowed}
+.is-rank-locked::after{content:"🔒 " attr(data-lock);display:block;margin-top:3px;font-size:8px;letter-spacing:.14em;color:#ffb36e}
+.result-career{display:flex;flex-direction:column;gap:6px;margin:10px 0 2px}
+.rc-row{display:flex;justify-content:space-between;gap:12px;padding:7px 10px;font-size:9px;letter-spacing:.14em;color:#b9c5ca;background:#ffffff0a;border-left:2px solid #4b5b64}
+.rc-row b{color:#f4e8d6}
+.rc-row.is-good{border-left-color:#5ec28a}.rc-row.is-bad{border-left-color:#d35a4a}
+.rc-up{display:flex;flex-direction:column;gap:3px;padding:9px 11px;background:#ffb36e1f;border-left:2px solid #ffb36e}
+.rc-up strong{font-size:10px;letter-spacing:.16em;color:#ffd7a0}.rc-up small{font-size:8px;letter-spacing:.14em;color:#ffb36e}
+@media(max-height:820px){.rank-next{display:none}}

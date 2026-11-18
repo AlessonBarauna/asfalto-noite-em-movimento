@@ -27,10 +27,12 @@ export type RaceSnapshot = {
   nitro: number
   elapsed: number
   level: number
+  carsJumped: number
+  hits: number
   mode: 'title' | 'playing' | 'paused' | 'ended'
 }
 
-export type RaceResult = { score: number; distance: number; nearMisses: number; seconds: number; unranked: boolean }
+export type RaceResult = { score: number; distance: number; nearMisses: number; carsJumped: number; hits: number; city: string; seconds: number; unranked: boolean }
 type TrafficCar = { root: THREE.Group; kind: TrafficKind; lane: number; active: boolean; tagged: boolean; speedFactor: number; width: number; length: number; height: number; jumped: boolean }
 
 /** Pulo: ~1,9 m de altura e ~0,9 s no ar — passa por cima de carros comuns. */
@@ -60,6 +62,10 @@ export class RaceGame {
   private elapsed = 0
   private lives: number = RACE_CONFIG.startingLives
   private nearMisses = 0
+  private carsJumped = 0
+  private hits = 0
+  private scenarioId: ScenarioId = 'cidade'
+  private trafficBoost = 1
   private spawnTimer = 0.9
   private invulnerable = 0
   private boostTimer = 0
@@ -167,7 +173,17 @@ export class RaceGame {
     this.garageDist = THREE.MathUtils.clamp(this.garageDist * Math.exp(delta * 0.0012), 4.2, 14)
   }
 
+  /** Contratos de carga valiosa deixam o trânsito mais denso (multiplicador sobre a frequência). */
+  setTrafficBoost(multiplier: number): void {
+    this.trafficBoost = Math.max(1, Math.min(2, multiplier))
+  }
+
+  get city(): ScenarioId {
+    return this.scenarioId
+  }
+
   setScenario(id: ScenarioId): void {
+    this.scenarioId = id
     const scenario = this.world.setScenario(id)
     this.setRain(scenario.rain && this.renderer.rainAllowed)
     this.sound.setScene(id, scenario.rain && this.renderer.rainAllowed)
@@ -191,6 +207,8 @@ export class RaceGame {
     this.elapsed = 0
     this.lives = RACE_CONFIG.startingLives
     this.nearMisses = 0
+    this.carsJumped = 0
+    this.hits = 0
     this.spawnTimer = 0.95
     this.invulnerable = 0
     this.boostTimer = 0
@@ -378,6 +396,8 @@ export class RaceGame {
       nitro: Math.max(0, 1 - this.boostCooldown / RACE_CONFIG.boostCooldown),
       elapsed: this.elapsed,
       level: levelForDistance(this.distance),
+      carsJumped: this.carsJumped,
+      hits: this.hits,
       mode: this.mode,
     }
   }
@@ -477,7 +497,7 @@ export class RaceGame {
   private spawnTraffic(): void {
     const activeCount = this.traffic.filter(car => car.active).length
     const difficulty = trafficDifficultyByDistance(this.distance)
-    this.spawnTimer = Math.max(difficulty.interval * (0.9 + this.random() * 0.2), activeCount > 5 ? 0.58 : 0)
+    this.spawnTimer = Math.max((difficulty.interval / this.trafficBoost) * (0.9 + this.random() * 0.2), activeCount > 5 ? 0.58 : 0)
 
     // Later in the run, occasional two-car waves leave one readable escape lane.
     const wanted = trafficWaveSizeByDistance(this.distance, this.random())
@@ -527,6 +547,7 @@ export class RaceGame {
         car.active = false
         car.root.visible = false
         this.lives = Math.max(0, this.lives - 1)
+        this.hits += 1
         this.invulnerable = 1.35
         this.hitShake = 1
         this.hitFlash = 1
@@ -542,7 +563,7 @@ export class RaceGame {
       if (!car.tagged && car.root.position.z > RACE_CONFIG.playerZ + 3.2) {
         car.tagged = true
         const pan = THREE.MathUtils.clamp((trafficX - this.x) / 5, -1, 1)
-        if (car.jumped) { this.nearMisses += 2; this.sound.passBy(pan) }
+        if (car.jumped) { this.nearMisses += 2; this.carsJumped += 1; this.sound.passBy(pan) }
         else if (Math.abs(this.x - trafficX) >= (car.width + 1.12) * 0.5 && Math.abs(this.x - trafficX) < 4.15) { this.nearMisses += 1; this.sound.passBy(pan) }
       }
       if (car.root.position.z > RACE_CONFIG.playerZ + 15) {
@@ -561,6 +582,9 @@ export class RaceGame {
       score: calculateScore(this.distance, this.nearMisses),
       distance: this.distance,
       nearMisses: this.nearMisses,
+      carsJumped: this.carsJumped,
+      hits: this.hits,
+      city: this.scenarioId,
       seconds: this.elapsed,
       unranked: tuning.unranked,
     }

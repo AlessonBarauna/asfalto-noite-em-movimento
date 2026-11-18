@@ -4,6 +4,7 @@ import { PAINT_OPTIONS, VEHICLE_PRICES, WHEEL_OPTIONS, TINT_OPTIONS, SPOILER_OPT
 import { BRAZILIAN_TRAFFIC_MODELS } from '../game/traffic-vehicles'
 import { SUPERCAR } from '../game/supercar'
 import { SCENARIOS } from '../game/scenarios'
+import { rankStatus, nextUnlocks, requiredRank, cityUnlockId, vehicleUnlockId, type RunReport } from '../game/career'
 
 export type RaceUiState = {
   score: number
@@ -100,9 +101,76 @@ export class RaceUI {
     if (miss) miss.textContent = state.nearMisses ? `${state.nearMisses} ${copy['results.nearMiss']}` : ''
   }
 
+  private rank = 1
+  private xp = 0
+
+  /** Atualiza a patente exibida e aplica os bloqueios por patente nas telas. */
+  setCareer(xp: number): void {
+    this.xp = xp
+    const status = rankStatus(xp)
+    this.rank = status.rank.level
+    this.set('.rank-name', status.legendStars > 0 ? `${status.rank.name} ★${status.legendStars}` : status.rank.name)
+    this.set('.rank-level', `PATENTE ${status.rank.level}`)
+    this.set('.rank-xp', `${status.xpIntoRank.toLocaleString('pt-BR')} / ${(status.xpIntoRank + status.xpToNext).toLocaleString('pt-BR')} XP`)
+    const bar = this.root.querySelector<HTMLElement>('.rank-bar i')
+    if (bar) bar.style.transform = `scaleX(${Math.max(0, Math.min(1, status.progress))})`
+    const next = nextUnlocks(status.rank.level)
+    this.set('.rank-next', next.length ? 'PRÓXIMA PATENTE ABRE: ' + next.map(entry => entry.label.toUpperCase()).join(' · ') : 'TODAS AS PATENTES ALCANÇADAS · SOME ESTRELAS DE LENDA')
+    this.root.querySelectorAll<HTMLButtonElement>('[data-scenario]').forEach(btn => {
+      const need = requiredRank(cityUnlockId(btn.dataset.scenario ?? ''))
+      const locked = this.rank < need
+      btn.classList.toggle('is-locked', locked)
+      btn.setAttribute('aria-disabled', String(locked))
+      btn.dataset.lock = locked ? `PATENTE ${need}` : ''
+    })
+  }
+
+  /** Marca na garagem o que ainda exige patente maior (o botão fica desativado e mostra a patente). */
+  private applyGarageLocks(): void {
+    const groups: Array<[string, string]> = [
+      ['[data-buy-paint]', 'garage-paint'], ['[data-buy-wheels]', 'garage-paint'], ['[data-buy-tint]', 'garage-tint'],
+      ['[data-buy-spoiler]', 'garage-tint'], ['[data-buy-suspension]', 'garage-performance'], ['[data-buy-exhaust]', 'garage-performance'], ['[data-buy-headlights]', 'garage-performance'],
+    ]
+    for (const [selector, feature] of groups) {
+      const need = requiredRank(feature)
+      this.root.querySelectorAll<HTMLButtonElement>(`.garage-modal ${selector}`).forEach(btn => this.lockButton(btn, this.rank < need, need))
+    }
+    this.root.querySelectorAll<HTMLButtonElement>('.garage-modal [data-buy-vehicle]').forEach(btn => {
+      const need = requiredRank(vehicleUnlockId(btn.dataset.buyVehicle ?? ''))
+      this.lockButton(btn, this.rank < need, need)
+    })
+  }
+
+  private lockButton(btn: HTMLButtonElement, locked: boolean, need: number): void {
+    btn.classList.toggle('is-rank-locked', locked)
+    if (locked) {
+      btn.disabled = true
+      btn.dataset.lock = `PATENTE ${need}`
+    } else delete btn.dataset.lock
+  }
+
+  /** Resumo de carreira da corrida na tela de resultados. */
+  setResultCareer(report: RunReport | null): void {
+    const box = this.root.querySelector<HTMLElement>('.result-career')
+    if (!box) return
+    if (!report) { box.innerHTML = ''; return }
+    const rows: string[] = []
+    rows.push(`<div class="rc-row"><span>XP DA CORRIDA</span><b>+${(report.xp.total + report.contractXp).toLocaleString('pt-BR')}</b></div>`)
+    if (report.contract) {
+      const ok = report.contract.outcome.completed
+      rows.push(`<div class="rc-row ${ok ? 'is-good' : 'is-bad'}"><span>CONTRATO · ${report.contract.contract.title.toUpperCase()}</span><b>${ok ? '+' + report.contractCredits.toLocaleString('pt-BR') + ' CR' : 'FALHOU'}</b></div>`)
+    }
+    if (report.rankAfter > report.rankBefore) {
+      const status = rankStatus(report.career.xp)
+      rows.push(`<div class="rc-up"><strong>SUBIU DE PATENTE · ${status.rank.name.toUpperCase()}</strong>${report.newUnlocks.map(entry => `<small>LIBEROU: ${entry.label.toUpperCase()}</small>`).join('')}</div>`)
+    }
+    box.innerHTML = rows.join('')
+  }
+
   showTitle(best: number, playerName = 'PILOTO', credits = 0): void {
     this.set('.title-best-value', best.toLocaleString('pt-BR'))
     this.set('.wallet-balance', credits.toLocaleString('pt-BR'))
+    this.setCareer(this.xp)
     const name = this.root.querySelector<HTMLInputElement>('.driver-name')
     if (name) name.value = playerName
     this.show('title')
@@ -148,6 +216,7 @@ export class RaceUI {
     if (exhaustGrid) exhaustGrid.innerHTML = EXHAUST_OPTIONS.map(option => { const owned = unlockedExhausts.includes(option.id); const active = selectedExhaust === option.id; const label = owned ? (active ? 'EM USO' : 'APLICAR') : `${option.price} CR`; return `<button class="accessory-option ${active ? 'is-selected' : ''}" ${owned ? 'data-exhaust' : 'data-buy-exhaust'}="${option.id}" ${!owned && credits < option.price ? 'disabled' : ''}><i class="accessory-symbol">${option.id === 'stock' ? '○' : option.id === 'sport' ? '◉' : '◎'}</i><strong>${option.label}</strong><small>${label}</small></button>` }).join('')
     const headlightGrid = this.root.querySelector<HTMLElement>('.headlight-grid')
     if (headlightGrid) headlightGrid.innerHTML = HEADLIGHT_OPTIONS.map(option => { const owned = unlockedHeadlights.includes(option.id); const active = selectedHeadlights === option.id; const label = owned ? (active ? 'EM USO' : 'APLICAR') : `${option.price} CR`; return `<button class="accessory-option ${active ? 'is-selected' : ''}" ${owned ? 'data-headlights' : 'data-buy-headlights'}="${option.id}" ${!owned && credits < option.price ? 'disabled' : ''}><i class="accessory-symbol">${option.id === 'halogen' ? 'H' : option.id === 'xenon' ? 'X' : 'LED'}</i><strong>${option.label}</strong><small>${label}</small></button>` }).join('')
+    this.applyGarageLocks()
     this.show('garage')
   }
   showPause(): void {
@@ -288,6 +357,7 @@ export class RaceUI {
 <section class="screen screen-title" data-screen="title">
   <div class="top-brand"><img src="/asfalto-icon.svg" alt="" /><div><div class="brand-name">ASFALTO</div><div class="brand-sub">NOITE EM MOVIMENTO</div></div></div>
   <div class="title-panel"><div class="eyebrow">${copy['game.kicker']}</div><h1 class="game-wordmark">AS<span>FAL</span>TO</h1>
+    <div class="rank-card"><div class="rank-top"><b class="rank-name">Novato</b><span class="rank-level">PATENTE 1</span><span class="rank-xp">0 / 250 XP</span></div><div class="rank-bar"><i></i></div><small class="rank-next"></small></div>
     <p class="title-copy">Uma noite. Três faixas. Tráfego sem fim. Desvie dos carros, acelere quando abrir espaço e veja até onde a cidade te leva.</p>
     <label class="pilot-input"><span>NOME NO PLACAR</span><input class="driver-name" name="pilot" type="text" maxlength="16" value="PILOTO" autocomplete="nickname" aria-label="Nome do piloto no placar" /></label>
     <div class="scenario-picker"><span>CENÁRIO</span><div class="scenario-row">${SCENARIOS.map(s => `<button class="scenario-btn" data-scenario="${s.id}" aria-pressed="false"><b>${s.label}</b><small>${s.blurb}</small></button>`).join('')}</div></div>
@@ -309,7 +379,7 @@ export class RaceUI {
   <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="garage">GARAGEM</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
 <section class="screen screen-modal" data-screen="results"><button class="back-btn" data-action="title">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · RESULTADO</div><h2>${copy['results.title']}</h2><div class="record-badge">${copy['results.best']}</div>
-  <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="payout-panel"><span>RECOMPENSA DA CORRIDA</span><strong class="result-credits">+0 CR</strong><small>SALDO: <b class="result-balance">0</b> CR</small></div><div class="modal-tag result-note"></div>
+  <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="payout-panel"><span>RECOMPENSA DA CORRIDA</span><strong class="result-credits">+0 CR</strong><small>SALDO: <b class="result-balance">0</b> CR</small></div><div class="result-career"></div><div class="modal-tag result-note"></div>
   <div class="modal-menu"><button class="game-btn primary" data-action="restart">${copy['results.retry']}</button><button class="game-btn" data-action="leaderboard">${copy['results.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
 <section class="screen screen-modal" data-screen="garage"><button class="back-btn" data-action="garage-back">← VOLTAR</button><div class="garage-hint">ARRASTE PARA GIRAR O CARRO · RODA DO MOUSE PARA ZOOM · DUPLO CLIQUE RESTAURA</div><div class="modal garage-modal"><div class="eyebrow">ASFALTO · GARAGEM</div><h2>ESCOLHA SEU CARRO</h2><p>Compre novos veículos com os créditos conquistados nas corridas. O Gol G5 continua sendo seu carro inicial.</p><div class="garage-wallet">SALDO DISPONÍVEL: <strong class="garage-balance"></strong> CR</div><div class="garage-notice" aria-live="polite"></div><h3 class="garage-section-title">PINTURA</h3><div class="paint-grid"></div><h3 class="garage-section-title">RODAS E AROS</h3><div class="wheel-grid accessory-grid"></div><h3 class="garage-section-title">INSULFILM</h3><div class="tint-grid accessory-grid"></div><h3 class="garage-section-title">AEROFÓLIO</h3><div class="spoiler-grid accessory-grid"></div><h3 class="garage-section-title">SUSPENSÃO</h3><div class="suspension-grid accessory-grid"></div><h3 class="garage-section-title">ESCAPAMENTO</h3><div class="exhaust-grid accessory-grid"></div><h3 class="garage-section-title">FARÓIS</h3><div class="headlight-grid accessory-grid"></div><h3 class="garage-section-title">VEÍCULOS</h3><div class="garage-grid"></div><div class="modal-menu"><button class="game-btn" data-action="garage-back">VOLTAR</button></div></div></section>

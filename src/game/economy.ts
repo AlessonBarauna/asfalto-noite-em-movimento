@@ -1,5 +1,6 @@
 /** Economy rules are pure so payouts can be tested independently from rendering. */
 import type { PlayerVehicleId } from '../engine/save'
+import { requiredRank, vehicleUnlockId } from './career/unlocks'
 
 export type RacePayout = { credits: number; distanceCredits: number; nearMissCredits: number }
 
@@ -26,7 +27,7 @@ export const VEHICLE_PRICES: Record<PlayerVehicleId, number> = {
 
 export type VehiclePurchase = {
   success: boolean
-  reason: 'already-owned' | 'insufficient-credits' | 'purchased'
+  reason: 'already-owned' | 'insufficient-credits' | 'purchased' | 'rank-locked'
   balance: number
   unlockedVehicles: PlayerVehicleId[]
 }
@@ -36,12 +37,16 @@ export function purchaseVehicle(
   balance: number,
   unlockedVehicles: PlayerVehicleId[],
   vehicle: PlayerVehicleId,
+  rank: number = Number.POSITIVE_INFINITY,
 ): VehiclePurchase {
   const owned = new Set(unlockedVehicles)
   owned.add('gol-g5')
   const currentBalance = Math.max(0, Number.isFinite(balance) ? Math.floor(balance) : 0)
   if (owned.has(vehicle)) {
     return { success: false, reason: 'already-owned', balance: currentBalance, unlockedVehicles: [...owned] }
+  }
+  if (rank < requiredRank(vehicleUnlockId(vehicle))) {
+    return { success: false, reason: 'rank-locked', balance: currentBalance, unlockedVehicles: [...owned] }
   }
   const price = VEHICLE_PRICES[vehicle]
   if (currentBalance < price) {
