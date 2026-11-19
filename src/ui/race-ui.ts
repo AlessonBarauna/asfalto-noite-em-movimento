@@ -3,6 +3,7 @@ import type { PlayerVehicleId, ScoreEntry } from '../engine/save'
 import { PAINT_OPTIONS, VEHICLE_PRICES, WHEEL_OPTIONS, TINT_OPTIONS, SPOILER_OPTIONS, SUSPENSION_OPTIONS, EXHAUST_OPTIONS, HEADLIGHT_OPTIONS } from '../game/economy'
 import { BRAZILIAN_TRAFFIC_MODELS } from '../game/traffic-vehicles'
 import { SUPERCAR } from '../game/supercar'
+import { POWERS, POWER_IDS, MAX_POWER_LEVEL, powerDuration, upgradeCost, type PowerId, type PowerLevels } from '../game/powers'
 import { controlPrefs, requestTiltPermission, PAD_LABELS, type PadId, type ControlScheme } from './controls-prefs'
 import { rankStatus, nextUnlocks, requiredRank, vehicleUnlockId, STAGES, COUNTRIES, stageRank, countryTicket, cityTicket, cityById, countryOfCity, type RunReport, type WorldState } from '../game/career'
 
@@ -43,6 +44,8 @@ export type RaceUiActions = {
   purchaseHeadlights(id: string): boolean
   openGarage(): void
   openWorld(): void
+  openPowers(): void
+  purchasePower(id: PowerId): void
   selectCity(id: string): void
   buyCountry(id: string): void
   buyCity(id: string): void
@@ -50,12 +53,13 @@ export type RaceUiActions = {
 }
 
 export class RaceUI {
-  screen: 'boot' | 'title' | 'hud' | 'pause' | 'results' | 'leaderboard' | 'garage' | 'world' | 'controls' | 'layout' = 'boot'
+  screen: 'boot' | 'title' | 'hud' | 'pause' | 'results' | 'leaderboard' | 'garage' | 'world' | 'controls' | 'layout' | 'powers' = 'boot'
   private readonly root: HTMLElement
   private noticeTimer = 0
   private returnAfterBoard: RaceUI['screen'] = 'title'
   private returnAfterGarage: RaceUI['screen'] = 'title'
   private returnAfterControls: RaceUI['screen'] = 'title'
+  private returnAfterPowers: RaceUI['screen'] = 'title'
   constructor(root: HTMLElement, private readonly actions: RaceUiActions) {
     this.root = root
     this.root.innerHTML = this.template()
@@ -300,6 +304,8 @@ export class RaceUI {
     const paint = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-paint]')
     if (paint?.dataset.paint) { this.actions.selectPaint(paint.dataset.paint); return }
     const target = event.target as HTMLElement
+    const powerBtn = target.closest<HTMLButtonElement>('[data-buy-power]')
+    if (powerBtn?.dataset.buyPower) { this.actions.purchasePower(powerBtn.dataset.buyPower as PowerId); return }
     const schemeBtn = target.closest<HTMLButtonElement>('.scheme-opt')
     if (schemeBtn?.dataset.scheme) { this.chooseScheme(schemeBtn.dataset.scheme as ControlScheme); return }
     const worldCity = target.closest<HTMLButtonElement>('[data-world-city]')
@@ -332,12 +338,35 @@ export class RaceUI {
       case 'world': this.actions.openWorld(); break
       case 'world-back': this.show('title'); break
       case 'controls': this.openControls(); break
+      case 'powers': this.returnAfterPowers = this.screen === 'pause' ? 'pause' : 'title'; this.actions.openPowers(); break
+      case 'powers-back': this.show(this.returnAfterPowers); break
       case 'controls-back': this.show(this.returnAfterControls); break
       case 'layout': this.openLayout(); break
       case 'layout-done': this.show('controls'); break
       case 'layout-reset': controlPrefs.resetPads(); this.buildLayout(); break
       case 'back': this.show(this.returnAfterBoard); break
     }
+  }
+
+  /** Tela de evolução: cada poder sobe de nível com créditos e dura mais. */
+  showPowers(levels: PowerLevels, credits: number): void {
+    const fmt = (value: number) => value.toLocaleString('pt-BR')
+    const cards = POWER_IDS.map(id => {
+      const info = POWERS[id]
+      const level = levels[id]
+      const cost = upgradeCost(id, level)
+      const pips = Array.from({ length: MAX_POWER_LEVEL }, (_, i) => `<i class="${i < level ? 'is-on' : ''}"></i>`).join('')
+      const now = powerDuration(id, level)
+      const next = cost === null ? null : powerDuration(id, level + 1)
+      const button = cost === null
+        ? '<button class="pw-buy" disabled>NÍVEL MÁXIMO</button>'
+        : `<button class="pw-buy" data-buy-power="${id}" ${credits < cost ? 'data-poor="1"' : ''}>EVOLUIR · ${fmt(cost)} CR</button>`
+      return `<article class="pw-card" style="--power:${info.color}"><header><b>${info.label}</b><span>NÍVEL ${level}/${MAX_POWER_LEVEL}</span></header><p>${info.blurb}</p><div class="pw-pips">${pips}</div><div class="pw-time"><strong>${now.toLocaleString('pt-BR')} s</strong>${next === null ? '' : `<em>→ ${next.toLocaleString('pt-BR')} s</em>`}</div>${button}</article>`
+    }).join('')
+    this.set('.powers-credits', fmt(credits))
+    const list = this.root.querySelector<HTMLElement>('.powers-list')
+    if (list) list.innerHTML = cards
+    this.show('powers')
   }
 
   private openControls(): void {
@@ -465,6 +494,7 @@ export class RaceUI {
     else if (this.screen === 'world') this.show('title')
     else if (this.screen === 'controls') this.show(this.returnAfterControls)
     else if (this.screen === 'layout') this.show('controls')
+    else if (this.screen === 'powers') this.show(this.returnAfterPowers)
   }
 
   private set(selector: string, value: string): void {
@@ -487,7 +517,7 @@ export class RaceUI {
     <label class="pilot-input"><span>NOME NO PLACAR</span><input class="driver-name" name="pilot" type="text" maxlength="16" value="PILOTO" autocomplete="nickname" aria-label="Nome do piloto no placar" /></label>
     <button class="dest-btn" data-action="world"><span>DESTINO</span><b class="dest-name">🇧🇷 São Paulo</b><small class="dest-sub">Brasil · ABRIR MAPA</small></button>
     <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
-    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="controls">CONTROLES <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
+    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="powers">PODERES <span>↗</span></button><button class="game-btn" data-action="controls">CONTROLES <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
   </div>
   <div class="title-wallet">SALDO <b><span class="wallet-balance">0</span> CR</b></div><div class="title-best">RECORDE LOCAL <b class="title-best-value">0</b><span class="title-sub">MAIOR DISTÂNCIA <i class="title-dist-value">0 km</i></span><span class="title-sub">TOTAL RODADO <i class="title-total-value">0 km</i></span></div>
 </section>
@@ -501,12 +531,13 @@ export class RaceUI {
 </section>
 <section class="screen screen-modal" data-screen="pause"><button class="back-btn" data-action="resume">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · PAUSA</div><h2>${copy['pause.title']}</h2><p>${copy['pause.subtitle']}</p>
   <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
-  <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="garage">GARAGEM</button><button class="game-btn" data-action="controls">CONTROLES</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
+  <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="garage">GARAGEM</button><button class="game-btn" data-action="powers">PODERES</button><button class="game-btn" data-action="controls">CONTROLES</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
 <section class="screen screen-modal" data-screen="results"><button class="back-btn" data-action="title">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · RESULTADO</div><h2>${copy['results.title']}</h2><div class="record-badge">${copy['results.best']}</div>
   <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="payout-panel"><span>RECOMPENSA DA CORRIDA</span><strong class="result-credits">+0 CR</strong><small>SALDO: <b class="result-balance">0</b> CR</small></div><div class="result-career"></div><div class="modal-tag result-note"></div>
   <div class="modal-menu"><button class="game-btn primary" data-action="restart">${copy['results.retry']}</button><button class="game-btn" data-action="leaderboard">${copy['results.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
+<section class="screen screen-modal screen-powers" data-screen="powers"><button class="back-btn" data-action="powers-back">← VOLTAR</button><div class="modal powers-modal"><div class="eyebrow">ASFALTO · OFICINA</div><h2>EVOLUA SEUS PODERES</h2><p>Pegue orbes na estrada para ativar. Cada nível aumenta o tempo que o poder dura. SALDO <b><span class="powers-credits">0</span> CR</b></p><div class="powers-list"></div></div></section>
 <section class="screen screen-modal" data-screen="controls"><button class="back-btn" data-action="controls-back">← VOLTAR</button><div class="modal controls-modal"><div class="eyebrow">ASFALTO · CONTROLES</div><h2>COMO VOCÊ DIRIGE</h2><p>Vale para o celular. No computador continuam as setas, A/D, W/S, espaço e F.</p>
   <div class="scheme-row"><button class="scheme-opt" data-scheme="touch" aria-pressed="false"><b>TOQUE</b><small>Arraste o dedo na tela para desviar</small></button><button class="scheme-opt" data-scheme="buttons" aria-pressed="false"><b>BOTÕES</b><small>Setas ◀ ▶ na tela</small></button><button class="scheme-opt" data-scheme="tilt" aria-pressed="false"><b>INCLINAR</b><small>Incline o celular para os lados</small></button></div>
   <label class="tilt-row is-hidden"><input type="checkbox" class="tilt-invert" /> <span>INVERTER O LADO DA INCLINAÇÃO</span></label><div class="tilt-status" aria-live="polite"></div>

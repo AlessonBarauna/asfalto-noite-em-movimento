@@ -3,6 +3,7 @@
  * it is easy to migrate. Corrupt or foreign data falls back to defaults instead of crashing.
  */
 import { defaultCareer, parseCareer, type CareerState } from '../game/career/career-state'
+import { defaultPowerLevels, parsePowerLevels, type PowerLevels } from '../game/powers'
 import { cityById, defaultWorld, parseWorld, FIRST_CITY, type WorldState } from '../game/career/world'
 
 export type Locale = 'en' | 'zh-CN'
@@ -52,6 +53,8 @@ export type SaveData = {
   world: WorldState
   bestDistance: number
   totalDistance: number
+  /** Nível de evolução de cada poder (aumenta a duração). */
+  powerLevels: PowerLevels
   /** Patente, XP, contratos e recordes por cidade (veja src/game/career). */
   career: CareerState
   leaderboard: ScoreEntry[]
@@ -99,6 +102,7 @@ export function defaultSave(): SaveData {
     bestDistance: 0,
     totalDistance: 0,
     career: defaultCareer(),
+    powerLevels: defaultPowerLevels(),
     completedRuns: 0,
     leaderboard: [],
   }
@@ -198,6 +202,7 @@ export function parseSave(raw: string | null): SaveData {
     bestDistance: Number.isFinite(data.bestDistance) ? Math.max(0, data.bestDistance as number) : 0,
     totalDistance: Number.isFinite(data.totalDistance) ? Math.max(0, data.totalDistance as number) : 0,
     career: parseCareer(data.career),
+    powerLevels: parsePowerLevels(data.powerLevels),
     leaderboard: board
       .filter((e): e is ScoreEntry => !!e && typeof e === 'object' && typeof (e as ScoreEntry).name === 'string' && Number.isFinite((e as ScoreEntry).score))
       .map(e => ({ name: e.name.slice(0, 16), score: Math.max(0, Math.floor(e.score)), seconds: Number.isFinite(e.seconds) ? e.seconds : 0, at: Number.isFinite(e.at) ? e.at : 0 }))

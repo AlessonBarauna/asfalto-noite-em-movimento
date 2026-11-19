@@ -21,9 +21,46 @@ export function pickPower(roll: number): PowerId {
   return POWER_IDS[Math.floor(r * POWER_IDS.length)]
 }
 
-/** Quanto resta do poder, de 1 (cheio) a 0 (acabou). */
-export const powerFraction = (id: PowerId, remainingSeconds: number): number =>
-  Math.min(1, Math.max(0, remainingSeconds / POWERS[id].seconds))
+/** Quanto resta do poder, de 1 (cheio) a 0 (acabou). `total` é a duração com a evolução aplicada. */
+export const powerFraction = (id: PowerId, remainingSeconds: number, total: number = POWERS[id].seconds): number =>
+  Math.min(1, Math.max(0, remainingSeconds / Math.max(0.001, total)))
+
+// ---------- evolução (comprada com créditos) ----------
+export const MAX_POWER_LEVEL = 8
+export type PowerLevels = Record<PowerId, number>
+export const defaultPowerLevels = (): PowerLevels => ({ clear: 0, wings: 0, ghost: 0 })
+
+/** Segundos extras por nível e fator de preço de cada poder. */
+const STEP: Record<PowerId, number> = { clear: 1.5, wings: 1.2, ghost: 1 }
+const PRICE_FACTOR: Record<PowerId, number> = { clear: 1, wings: 1.2, ghost: 1.4 }
+
+const clampLevel = (level: number): number => (Number.isFinite(level) ? Math.min(MAX_POWER_LEVEL, Math.max(0, Math.floor(level))) : 0)
+
+export const powerDuration = (id: PowerId, level: number): number =>
+  Math.round((POWERS[id].seconds + clampLevel(level) * STEP[id]) * 10) / 10
+
+/** Preço de subir do nível `level` para o seguinte; null quando já está no máximo. */
+export function upgradeCost(id: PowerId, level: number): number | null {
+  const lv = clampLevel(level)
+  if (lv >= MAX_POWER_LEVEL) return null
+  return Math.round((400 * Math.pow(1.6, lv) * PRICE_FACTOR[id]) / 50) * 50
+}
+
+export function parsePowerLevels(raw: unknown): PowerLevels {
+  const data = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  return { clear: clampLevel(Number(data.clear)), wings: clampLevel(Number(data.wings)), ghost: clampLevel(Number(data.ghost)) }
+}
+
+export type PowerPurchase =
+  | { success: true; balance: number; levels: PowerLevels }
+  | { success: false; reason: 'max-level' | 'insufficient-credits'; balance: number; levels: PowerLevels }
+
+export function buyPowerUpgrade(balance: number, levels: PowerLevels, id: PowerId): PowerPurchase {
+  const price = upgradeCost(id, levels[id])
+  if (price === null) return { success: false, reason: 'max-level', balance, levels }
+  if (balance < price) return { success: false, reason: 'insufficient-credits', balance, levels }
+  return { success: true, balance: balance - price, levels: { ...levels, [id]: levels[id] + 1 } }
+}
 
 /** Fração de carros à frente que somem quando "Rua livre" é pega (os demais continuam). */
 export const CLEAR_REMOVES = 2 / 3

@@ -1,4 +1,4 @@
-import { CLEAR_REMOVES, FIRST_PICKUP_DISTANCE, POWERS, POWER_IDS, nextPickupGap, pickPower, powerFraction, type PowerId } from './powers'
+import { defaultPowerLevels, powerDuration, type PowerLevels, CLEAR_REMOVES, FIRST_PICKUP_DISTANCE, POWERS, POWER_IDS, nextPickupGap, pickPower, powerFraction, type PowerId } from './powers'
 import * as THREE from 'three'
 import type { Audio } from '../engine/audio'
 import { Soundscape } from '../engine/soundscape'
@@ -66,6 +66,8 @@ export class RaceGame {
   private nearMisses = 0
   private power: PowerId | null = null
   private powerTimer = 0
+  private powerTotal = 1
+  private powerLevels: PowerLevels = defaultPowerLevels()
   private flyY = 0
   private altitude = 0
   private pickupGap = FIRST_PICKUP_DISTANCE
@@ -419,7 +421,7 @@ export class RaceGame {
       level: levelForDistance(this.distance),
       carsJumped: this.carsJumped,
       hits: this.hits,
-      power: this.power ? { label: POWERS[this.power].label, color: POWERS[this.power].color, fraction: powerFraction(this.power, this.powerTimer) } : null,
+      power: this.power ? { label: POWERS[this.power].label, color: POWERS[this.power].color, fraction: powerFraction(this.power, this.powerTimer, this.powerTotal) } : null,
       mode: this.mode,
     }
   }
@@ -646,9 +648,15 @@ export class RaceGame {
     void dt
   }
 
+  /** Evolução dos poderes comprada pelo jogador (vale a partir do próximo orbe). */
+  setPowerLevels(levels: PowerLevels): void {
+    this.powerLevels = { ...levels }
+  }
+
   private grantPower(id: PowerId): void {
     this.power = id
-    this.powerTimer = POWERS[id].seconds
+    this.powerTotal = powerDuration(id, this.powerLevels[id])
+    this.powerTimer = this.powerTotal
     this.sound.power()
     this.effects.burst(new THREE.Vector3(this.x, 1.1, RACE_CONFIG.playerZ - 0.6), POWERS[id].color, 26, 7)
     if (id === 'clear') {
