@@ -8,7 +8,7 @@ import { preloadSupercar } from './game/supercar'
 import type { ScenarioId } from './game/scenarios'
 import { RaceGame, type RaceResult } from './game/race-game'
 import { POWERS, buyPowerUpgrade } from './game/powers'
-import { applyRun, buyCity, buyCountry, cityById, cityMultiplier, countryById, countryOfCity, rankLevel, rankLabel, requiredRank, vehicleUnlockId, xpForRun, type RunSummary } from './game/career'
+import { CARGO, applyRun, contractLive, deliverContract, describeObjective, generateBoard, isUnlocked, citiesByTheme, buyCity, buyCountry, cityById, cityMultiplier, countryById, countryOfCity, rankLevel, rankLabel, requiredRank, vehicleUnlockId, xpForRun, type Contract, type RunSummary } from './game/career'
 import { calculateRacePayout, purchaseVehicle as buyVehicle, purchasePaint as buyPaint, purchaseWheels as buyWheels, purchaseTint as buyTint, purchaseSpoiler as buySpoiler, purchaseSuspension as buySuspension, purchaseExhaust as buyExhaust, purchaseHeadlights as buyHeadlights } from './game/economy'
 import { tuning } from './game/tuning'
 import { TouchControls } from './ui/touch'
@@ -61,6 +61,19 @@ async function boot(): Promise<void> {
     },
     setSensitivity: value => { save.update({ sensitivity: value }); input.sensitivity = save.data.sensitivity; ui.setSensitivity(save.data.sensitivity) },
     openLeaderboard: () => { ui.showLeaderboard(save.data.leaderboard) },
+    openContracts: () => { if (!rankGate('mode-contratos')) renderContracts() },
+    acceptContract: id => {
+      save.update({ career: { ...save.data.career, activeContract: id } })
+      ui.toast('CONTRATO ACEITO')
+      renderContracts()
+      refreshContractChip()
+    },
+    cancelContract: () => {
+      save.update({ career: { ...save.data.career, activeContract: '' } })
+      ui.toast('CONTRATO CANCELADO')
+      renderContracts()
+      refreshContractChip()
+    },
     openPowers: () => ui.showPowers(save.data.powerLevels, save.data.credits),
     purchasePower: id => {
       const result = buyPowerUpgrade(save.data.credits, save.data.powerLevels, id)
@@ -176,6 +189,59 @@ async function boot(): Promise<void> {
   }
   /** XP já creditado de uma corrida em andamento, para não contar duas vezes ao pausar/sair. */
   let bankedXp = 0
+  const THEME_LABEL: Record<string, string> = { cidade: 'Metrópole', serra: 'Serra', deserto: 'Deserto' }
+  const boardNow = (): Contract[] => generateBoard(save.data.career.boardSeed, careerRank())
+  function renderContracts(): void {
+    const theme = game?.city ?? save.data.scenario
+    const cards = boardNow().map(contract => ({
+      contract,
+      cargoRule: CARGO[contract.cargo].rule,
+      objective: describeObjective(contract),
+      themeLabel: THEME_LABEL[contract.city] ?? contract.city,
+      matches: contract.city === theme,
+      examples: citiesByTheme(contract.city as 'cidade' | 'serra' | 'deserto').slice(0, 3).map(city => city.name),
+    }))
+    ui.showContracts(cards, save.data.career.activeContract, THEME_LABEL[theme] ?? theme, save.data.career.contractsDone)
+  }
+  function refreshContractChip(): void {
+    const active = isUnlocked(careerRank(), 'mode-contratos') ? boardNow().find(c => c.id === save.data.career.activeContract) : undefined
+    ui.setActiveContract(active ? active.title : null)
+  }
+  // contrato da corrida em andamento
+  let runContract: Contract | null = null
+  let runSkip = false
+  let runRank = 1
+  let deliveredNote = ''
+  const secondsText = (value: number) => `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`
+  function contractHud(snap: { distance: number; nearMisses: number; carsJumped: number; hits: number; elapsed: number }) {
+    if (!runContract) return null
+    const contract = runContract
+    if (deliveredNote) return { title: contract.title, text: describeObjective(contract), fraction: 1, state: 'done' as const, note: deliveredNote }
+    const live = contractLive(contract, summaryOf(snap))
+    const { kind, target } = contract.objective
+    const progress = kind === 'distancia' ? `${(live.value / 1000).toFixed(2).replace('.', ',')} / ${(target / 1000).toFixed(1).replace('.', ',')} KM` : `${Math.floor(live.value)} / ${target}`
+    if (live.failed) {
+      const note = live.failed === 'cargo-lost' ? 'CARGA PERDIDA' : live.failed === 'too-slow' ? 'PRAZO ESGOTADO' : 'CENÁRIO ERRADO'
+      return { title: contract.title, text: progress, fraction: live.fraction, state: 'failed' as const, note }
+    }
+    const note = live.remaining !== undefined ? `PRAZO ${secondsText(live.remaining)}` : contract.cargo === 'fragil' ? 'NÃO BATA' : ''
+    return { title: contract.title, text: progress, fraction: live.fraction, state: 'active' as const, note }
+  }
+  function checkDelivery(snap: { distance: number; nearMisses: number; carsJumped: number; hits: number; elapsed: number }): void {
+    if (!runContract || deliveredNote || tuning.unranked) return
+    if (!contractLive(runContract, summaryOf(snap)).delivered) return
+    const report = deliverContract(save.data.career, runContract)
+    if (!report) return
+    save.update({
+      career: report.career,
+      credits: save.data.credits + report.credits,
+      lifetimeCredits: save.data.lifetimeCredits + report.credits,
+    })
+    deliveredNote = `ENTREGUE · +${report.credits.toLocaleString('pt-BR')} CR · +${report.xp.toLocaleString('pt-BR')} XP`
+    game?.cheer()
+    ui.toast('CONTRATO ENTREGUE!')
+    if (report.rankAfter > report.rankBefore) ui.toast(`PATENTE ${rankLabel(save.data.career.xp).toUpperCase()}`)
+  }
   const summaryOf = (snap: { distance: number; nearMisses: number; carsJumped: number; hits: number; elapsed: number }): RunSummary => ({
     distance: snap.distance, nearMisses: snap.nearMisses, carsJumped: snap.carsJumped, hits: snap.hits, seconds: snap.elapsed, city: game?.city ?? 'cidade', unranked: tuning.unranked,
   })
@@ -210,6 +276,7 @@ async function boot(): Promise<void> {
   function showTitleScreen(): void {
     ui.showTitle(bestScore(), save.data.playerName, save.data.credits)
     ui.setDestination(save.data.city)
+    refreshContractChip()
     ui.setSensitivity(save.data.sensitivity)
     ui.setDistanceStats(save.data.bestDistance, save.data.totalDistance)
     ui.setCareer(save.data.career.xp)
@@ -220,7 +287,18 @@ async function boot(): Promise<void> {
     bankedCredits = 0
     bankedDistance = 0
     bankedXp = 0
-    game.setTrafficBoost(1)
+    runRank = careerRank()
+    runContract = null
+    runSkip = false
+    deliveredNote = ''
+    const active = isUnlocked(runRank, 'mode-contratos') ? boardNow().find(c => c.id === save.data.career.activeContract) : undefined
+    if (active) {
+      if (active.city !== game.city) {
+        runSkip = true
+        ui.toast(`O CONTRATO PEDE O CENÁRIO ${(THEME_LABEL[active.city] ?? active.city).toUpperCase()} · TROQUE O DESTINO NO MAPA`)
+      } else runContract = active
+    }
+    game.setTrafficBoost(runContract?.trafficBoost ?? 1)
     lastLevel = 1
     audio.unlock()
     game.start()
@@ -280,7 +358,8 @@ async function boot(): Promise<void> {
     render: (_alpha, frameSeconds) => {
       currentGame.setGarageView(ui.screen === 'garage')
       const state = currentGame.render(frameSeconds)
-      if (currentGame.mode === 'playing' || currentGame.mode === 'ended') ui.update(state)
+      if (currentGame.mode === 'playing') checkDelivery(state)
+      if (currentGame.mode === 'playing' || currentGame.mode === 'ended') ui.update({ ...state, contract: currentGame.mode === 'playing' ? contractHud(state) : null })
       if (currentGame.mode === 'playing' && state.level > lastLevel) { lastLevel = state.level; ui.toast(`NÍVEL ${state.level} · TRÁFEGO MAIS RÁPIDO`) }
       if (currentGame.mode === 'ended' && !resultHandled) {
         resultHandled = true
@@ -303,8 +382,10 @@ async function boot(): Promise<void> {
       const inserted = insertScore(save.data.leaderboard, entry)
       payout = bankProgress(result.distance, result.nearMisses) // paga só o que ainda não foi guardado
       // carreira: soma só o que ainda não foi creditado e avalia o contrato aceito
-      const before = { ...save.data.career, xp: Math.max(0, save.data.career.xp - bankedXp) }
-      report = applyRun(before, { distance: result.distance, nearMisses: result.nearMisses, carsJumped: result.carsJumped, hits: result.hits, seconds: result.seconds, city: result.city })
+      const keptContract = save.data.career.activeContract
+      const before = { ...save.data.career, xp: Math.max(0, save.data.career.xp - bankedXp), activeContract: runSkip ? '' : keptContract }
+      report = applyRun(before, { distance: result.distance, nearMisses: result.nearMisses, carsJumped: result.carsJumped, hits: result.hits, seconds: result.seconds, city: result.city }, runRank)
+      if (runSkip) report = { ...report, career: { ...report.career, activeContract: keptContract } }
       payout += report.contractCredits
       save.update({
         leaderboard: inserted.board,

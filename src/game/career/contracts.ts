@@ -124,3 +124,26 @@ export function describeObjective(contract: Contract): string {
   const base = kind === 'distancia' ? `Percorrer ${(target / 1000).toFixed(1).replace('.', ',')} km` : kind === 'quase-batidas' ? `Fazer ${target} quase-batidas` : `Pular ${target} carros`
   return contract.timeLimit !== undefined ? `${base} em até ${contract.timeLimit}s` : base
 }
+
+export type ContractLive = {
+  value: number
+  fraction: number
+  /** Objetivo cumprido sem nenhuma regra quebrada: o contrato pode ser entregue agora. */
+  delivered: boolean
+  failed: 'wrong-city' | 'cargo-lost' | 'too-slow' | null
+  /** Segundos restantes do prazo (cargas urgentes). */
+  remaining?: number
+}
+
+/** Situação do contrato durante a corrida (usada no HUD e para entregar assim que o objetivo é cumprido). */
+export function contractLive(contract: Contract, run: RunSummary): ContractLive {
+  const { kind, target } = contract.objective
+  const value = kind === 'distancia' ? run.distance : kind === 'quase-batidas' ? run.nearMisses : run.carsJumped
+  const fraction = Math.min(1, Math.max(0, value / Math.max(1, target)))
+  let failed: ContractLive['failed'] = null
+  if (run.city !== contract.city) failed = 'wrong-city'
+  else if (contract.cargo === 'fragil' && run.hits > 0) failed = 'cargo-lost'
+  else if (contract.timeLimit !== undefined && run.seconds > contract.timeLimit && fraction < 1) failed = 'too-slow'
+  const remaining = contract.timeLimit !== undefined ? Math.max(0, contract.timeLimit - run.seconds) : undefined
+  return { value, fraction, delivered: !failed && !run.unranked && fraction >= 1, failed, remaining }
+}

@@ -648,6 +648,11 @@ export class RaceGame {
     void dt
   }
 
+  /** Som de comemoração (contrato entregue). */
+  cheer(): void {
+    this.sound.levelUp()
+  }
+
   /** Evolução dos poderes comprada pelo jogador (vale a partir do próximo orbe). */
   setPowerLevels(levels: PowerLevels): void {
     this.powerLevels = { ...levels }

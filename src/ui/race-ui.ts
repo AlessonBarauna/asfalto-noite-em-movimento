@@ -5,6 +5,7 @@ import { BRAZILIAN_TRAFFIC_MODELS } from '../game/traffic-vehicles'
 import { SUPERCAR } from '../game/supercar'
 import { POWERS, POWER_IDS, MAX_POWER_LEVEL, powerDuration, upgradeCost, type PowerId, type PowerLevels } from '../game/powers'
 import { controlPrefs, requestTiltPermission, PAD_LABELS, type PadId, type ControlScheme } from './controls-prefs'
+import type { Contract } from '../game/career'
 import { rankStatus, nextUnlocks, requiredRank, vehicleUnlockId, STAGES, COUNTRIES, stageRank, countryTicket, cityTicket, cityById, countryOfCity, type RunReport, type WorldState } from '../game/career'
 
 export type RaceUiState = {
@@ -15,6 +16,7 @@ export type RaceUiState = {
   nearMisses: number
   nitro: number
   power?: { label: string; color: string; fraction: number } | null
+  contract?: { title: string; text: string; fraction: number; state: 'active' | 'done' | 'failed'; note: string } | null
   mode: 'title' | 'playing' | 'paused' | 'ended'
 }
 
@@ -45,6 +47,9 @@ export type RaceUiActions = {
   openGarage(): void
   openWorld(): void
   openPowers(): void
+  openContracts(): void
+  acceptContract(id: string): void
+  cancelContract(): void
   purchasePower(id: PowerId): void
   selectCity(id: string): void
   buyCountry(id: string): void
@@ -53,7 +58,7 @@ export type RaceUiActions = {
 }
 
 export class RaceUI {
-  screen: 'boot' | 'title' | 'hud' | 'pause' | 'results' | 'leaderboard' | 'garage' | 'world' | 'controls' | 'layout' | 'powers' = 'boot'
+  screen: 'boot' | 'title' | 'hud' | 'pause' | 'results' | 'leaderboard' | 'garage' | 'world' | 'controls' | 'layout' | 'powers' | 'contracts' = 'boot'
   private readonly root: HTMLElement
   private noticeTimer = 0
   private returnAfterBoard: RaceUI['screen'] = 'title'
@@ -106,6 +111,18 @@ export class RaceUI {
     this.root.querySelectorAll<HTMLElement>('.damage').forEach((el, i) => el.classList.toggle('is-empty', i >= state.lives))
     const nitro = this.root.querySelector<HTMLElement>('.nitro-track i')
     if (nitro) nitro.style.transform = `scaleX(${Math.max(0, Math.min(1, state.nitro))})`
+    const cw = this.root.querySelector<HTMLElement>('.contract-widget')
+    if (cw) {
+      const contract = state.contract ?? null
+      cw.classList.toggle('is-on', !!contract)
+      cw.dataset.state = contract?.state ?? ''
+      if (contract) {
+        const title = cw.querySelector('.cw-top b'); if (title && title.textContent !== contract.title) title.textContent = contract.title
+        const note = cw.querySelector('.cw-top em'); if (note) note.textContent = contract.note
+        const text = cw.querySelector('.cw-text'); if (text) text.textContent = contract.text
+        const bar = cw.querySelector<HTMLElement>('span i'); if (bar) bar.style.transform = `scaleX(${Math.max(0, Math.min(1, contract.fraction))})`
+      }
+    }
     const widget = this.root.querySelector<HTMLElement>('.power-widget')
     if (widget) {
       const power = state.power ?? null
@@ -304,6 +321,9 @@ export class RaceUI {
     const paint = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-paint]')
     if (paint?.dataset.paint) { this.actions.selectPaint(paint.dataset.paint); return }
     const target = event.target as HTMLElement
+    const acceptBtn = target.closest<HTMLButtonElement>('[data-accept-contract]')
+    if (acceptBtn?.dataset.acceptContract) { this.actions.acceptContract(acceptBtn.dataset.acceptContract); return }
+    if (target.closest('[data-cancel-contract]')) { this.actions.cancelContract(); return }
     const powerBtn = target.closest<HTMLButtonElement>('[data-buy-power]')
     if (powerBtn?.dataset.buyPower) { this.actions.purchasePower(powerBtn.dataset.buyPower as PowerId); return }
     const schemeBtn = target.closest<HTMLButtonElement>('.scheme-opt')
@@ -339,6 +359,8 @@ export class RaceUI {
       case 'world-back': this.show('title'); break
       case 'controls': this.openControls(); break
       case 'powers': this.returnAfterPowers = this.screen === 'pause' ? 'pause' : 'title'; this.actions.openPowers(); break
+      case 'contracts': this.actions.openContracts(); break
+      case 'contracts-back': this.show('title'); break
       case 'powers-back': this.show(this.returnAfterPowers); break
       case 'controls-back': this.show(this.returnAfterControls); break
       case 'layout': this.openLayout(); break
@@ -346,6 +368,31 @@ export class RaceUI {
       case 'layout-reset': controlPrefs.resetPads(); this.buildLayout(); break
       case 'back': this.show(this.returnAfterBoard); break
     }
+  }
+
+  /** Mostra o contrato aceito na tela de título. */
+  setActiveContract(title: string | null): void {
+    const chip = this.root.querySelector<HTMLElement>('.contract-chip')
+    if (!chip) return
+    chip.classList.toggle('is-on', !!title)
+    const label = chip.querySelector('b')
+    if (label) label.textContent = title ?? 'NENHUM'
+  }
+
+  /** Quadro de contratos da madrugada. */
+  showContracts(cards: Array<{ contract: Contract; cargoRule: string; objective: string; themeLabel: string; matches: boolean; examples: string[] }>, activeId: string, currentTheme: string, done: number): void {
+    const fmt = (value: number) => value.toLocaleString('pt-BR')
+    const html = cards.map(({ contract, cargoRule, objective, themeLabel, matches, examples }) => {
+      const active = contract.id === activeId
+      const stars = '★'.repeat(contract.tier) + '☆'.repeat(3 - contract.tier)
+      const warn = matches ? '' : `<div class="ct-warn">SEU DESTINO ATUAL É ${currentTheme.toUpperCase()}. PARA ESTE CONTRATO, ESCOLHA NO MAPA UMA CIDADE DE ${themeLabel.toUpperCase()}${examples.length ? ` (EX.: ${examples.join(', ').toUpperCase()})` : ''}.</div>`
+      const button = active ? '<button class="game-btn" data-cancel-contract="1">CANCELAR CONTRATO</button>' : `<button class="game-btn primary" data-accept-contract="${contract.id}">ACEITAR</button>`
+      return `<article class="ct-card ${active ? 'is-active' : ''}" data-tier="${contract.tier}"><header><span class="ct-stars">${stars}</span><b>${contract.title}</b>${active ? '<em>ACEITO</em>' : ''}</header><p class="ct-rule">${cargoRule}</p><div class="ct-obj">${objective}</div><div class="ct-meta"><span>CENÁRIO · ${themeLabel.toUpperCase()}</span><strong>+${fmt(contract.reward.credits)} CR · +${fmt(contract.reward.xp)} XP</strong></div>${warn}${button}</article>`
+    }).join('')
+    const list = this.root.querySelector<HTMLElement>('.contracts-list')
+    if (list) list.innerHTML = html
+    this.set('.contracts-done', String(done))
+    this.show('contracts')
   }
 
   /** Tela de evolução: cada poder sobe de nível com créditos e dura mais. */
@@ -399,7 +446,7 @@ export class RaceUI {
     window.addEventListener('devicemotion', onTilt)
     window.setTimeout(() => {
       window.removeEventListener('devicemotion', onTilt)
-      this.set('.tilt-status', seen ? 'INCLINAÇÃO ATIVA · O CENTRO É ZERADO AO COMEÇAR A CORRIDA.' : window.isSecureContext ? 'O APARELHO NÃO ESTÁ ENVIANDO A INCLINAÇÃO.' : 'ESTE ENDEREÇO NÃO É HTTPS, E O NAVEGADOR BLOQUEIA A INCLINAÇÃO. USE UM ENDEREÇO HTTPS (OU LIBERE ESTE ENDEREÇO NO CHROME: chrome://flags → Insecure origins treated as secure).')
+      this.set('.tilt-status', seen ? 'INCLINAÇÃO ATIVA · O CENTRO É ZERADO AO COMEÇAR A CORRIDA.' : window.isSecureContext ? 'O APARELHO NÃO ESTÁ ENVIANDO A INCLINAÇÃO.' : (/iPhone|iPad|iPod/.test(navigator.userAgent) ? 'NO IPHONE (SAFARI) A INCLINAÇÃO SÓ FUNCIONA EM ENDEREÇO HTTPS. ABRA O JOGO PELO ENDEREÇO https://… DO SERVIDOR.' : 'ESTE ENDEREÇO NÃO É HTTPS, E O NAVEGADOR BLOQUEIA A INCLINAÇÃO. USE UM ENDEREÇO HTTPS (OU LIBERE NO CHROME: chrome://flags → Insecure origins treated as secure).'))
     }, 1600)
   }
 
@@ -495,6 +542,7 @@ export class RaceUI {
     else if (this.screen === 'controls') this.show(this.returnAfterControls)
     else if (this.screen === 'layout') this.show('controls')
     else if (this.screen === 'powers') this.show(this.returnAfterPowers)
+    else if (this.screen === 'contracts') this.show('title')
   }
 
   private set(selector: string, value: string): void {
@@ -515,9 +563,10 @@ export class RaceUI {
     <div class="rank-card"><div class="rank-top"><b class="rank-name">Novato</b><span class="rank-level">PATENTE 1</span><span class="rank-xp">0 / 250 XP</span></div><div class="rank-bar"><i></i></div><small class="rank-next"></small></div>
     <p class="title-copy">Uma noite. Três faixas. Tráfego sem fim. Desvie dos carros, acelere quando abrir espaço e veja até onde a cidade te leva.</p>
     <label class="pilot-input"><span>NOME NO PLACAR</span><input class="driver-name" name="pilot" type="text" maxlength="16" value="PILOTO" autocomplete="nickname" aria-label="Nome do piloto no placar" /></label>
+    <div class="contract-chip"><span>CONTRATO</span><b>NENHUM</b></div>
     <button class="dest-btn" data-action="world"><span>DESTINO</span><b class="dest-name">🇧🇷 São Paulo</b><small class="dest-sub">Brasil · ABRIR MAPA</small></button>
     <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
-    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="powers">PODERES <span>↗</span></button><button class="game-btn" data-action="controls">CONTROLES <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
+    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="contracts">CONTRATOS <span>↗</span></button><button class="game-btn" data-action="powers">PODERES <span>↗</span></button><button class="game-btn" data-action="controls">CONTROLES <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
   </div>
   <div class="title-wallet">SALDO <b><span class="wallet-balance">0</span> CR</b></div><div class="title-best">RECORDE LOCAL <b class="title-best-value">0</b><span class="title-sub">MAIOR DISTÂNCIA <i class="title-dist-value">0 km</i></span><span class="title-sub">TOTAL RODADO <i class="title-total-value">0 km</i></span></div>
 </section>
@@ -526,6 +575,7 @@ export class RaceUI {
     <div class="hud-right"><div class="hud-block hud-speed"><div class="hud-speed-value">0<small>${copy['hud.speed']}</small></div><div class="hud-speed-label">${copy['hud.damage']}</div><div class="damage-row"><i class="damage"></i><i class="damage"></i><i class="damage"></i></div></div><button class="pause-btn" data-action="pause" aria-label="${copy['menu.pause']}">Ⅱ</button></div>
   </div>
   <div class="nitro-widget"><div class="nitro-label"><span>${copy['hud.nitro']}</span><span>F</span></div><div class="nitro-track"><i></i></div></div>
+  <div class="contract-widget"><div class="cw-top"><b></b><em></em></div><div class="cw-text"></div><span><i></i></span></div>
   <div class="power-widget"><b></b><span><i></i></span></div>
   <div class="center-notice"></div>
 </section>
@@ -537,6 +587,7 @@ export class RaceUI {
   <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="payout-panel"><span>RECOMPENSA DA CORRIDA</span><strong class="result-credits">+0 CR</strong><small>SALDO: <b class="result-balance">0</b> CR</small></div><div class="result-career"></div><div class="modal-tag result-note"></div>
   <div class="modal-menu"><button class="game-btn primary" data-action="restart">${copy['results.retry']}</button><button class="game-btn" data-action="leaderboard">${copy['results.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
+<section class="screen screen-modal screen-contracts" data-screen="contracts"><button class="back-btn" data-action="contracts-back">← VOLTAR</button><div class="modal contracts-modal"><div class="eyebrow">ASFALTO · CONTRATOS DA MADRUGADA</div><h2>QUAL CARGA HOJE?</h2><p>Aceite um contrato, dirija e entregue. Ele vale uma corrida e é pago na hora da entrega. CONTRATOS ENTREGUES <b class="contracts-done">0</b></p><div class="contracts-list"></div></div></section>
 <section class="screen screen-modal screen-powers" data-screen="powers"><button class="back-btn" data-action="powers-back">← VOLTAR</button><div class="modal powers-modal"><div class="eyebrow">ASFALTO · OFICINA</div><h2>EVOLUA SEUS PODERES</h2><p>Pegue orbes na estrada para ativar. Cada nível aumenta o tempo que o poder dura. SALDO <b><span class="powers-credits">0</span> CR</b></p><div class="powers-list"></div></div></section>
 <section class="screen screen-modal" data-screen="controls"><button class="back-btn" data-action="controls-back">← VOLTAR</button><div class="modal controls-modal"><div class="eyebrow">ASFALTO · CONTROLES</div><h2>COMO VOCÊ DIRIGE</h2><p>Vale para o celular. No computador continuam as setas, A/D, W/S, espaço e F.</p>
   <div class="scheme-row"><button class="scheme-opt" data-scheme="touch" aria-pressed="false"><b>TOQUE</b><small>Arraste o dedo na tela para desviar</small></button><button class="scheme-opt" data-scheme="buttons" aria-pressed="false"><b>BOTÕES</b><small>Setas ◀ ▶ na tela</small></button><button class="scheme-opt" data-scheme="tilt" aria-pressed="false"><b>INCLINAR</b><small>Incline o celular para os lados</small></button></div>

@@ -99,3 +99,30 @@ export function applyRun(state: CareerState, run: RunSummary, rank: number = ran
     newUnlocks: rankAfter > rankBefore ? unlocksBetween(rankBefore, rankAfter) : [],
   }
 }
+
+export type DeliveryReport = {
+  career: CareerState
+  contract: Contract
+  credits: number
+  xp: number
+  rankBefore: number
+  rankAfter: number
+  newUnlocks: ReturnType<typeof unlocksBetween>
+}
+
+/** Entrega o contrato aceito no instante em que o objetivo é cumprido (sem esperar a corrida acabar). */
+export function deliverContract(state: CareerState, contract: Contract): DeliveryReport | null {
+  if (!state.activeContract || state.activeContract !== contract.id) return null
+  const rankBefore = rankLevel(state.xp)
+  const xp = state.xp + contract.reward.xp
+  const rankAfter = rankLevel(xp)
+  return {
+    career: { ...state, xp, activeContract: '', boardSeed: state.boardSeed + 1, contractsDone: state.contractsDone + 1 },
+    contract,
+    credits: contract.reward.credits,
+    xp: contract.reward.xp,
+    rankBefore,
+    rankAfter,
+    newUnlocks: rankAfter > rankBefore ? unlocksBetween(rankBefore, rankAfter) : [],
+  }
+}
