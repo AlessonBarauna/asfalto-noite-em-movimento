@@ -395,11 +395,11 @@ export class RaceUI {
     if (!ok) { this.set('.tilt-status', 'SEM PERMISSÃO PARA LER A INCLINAÇÃO. LIBERE O SENSOR DE MOVIMENTO NO NAVEGADOR.'); return }
     this.set('.tilt-status', 'INCLINE O CELULAR PARA TESTAR…')
     let seen = false
-    const onTilt = (e: DeviceOrientationEvent) => { if (e.gamma !== null || e.beta !== null) seen = true }
-    window.addEventListener('deviceorientation', onTilt)
+    const onTilt = (e: DeviceMotionEvent) => { if (e.accelerationIncludingGravity?.x != null) seen = true }
+    window.addEventListener('devicemotion', onTilt)
     window.setTimeout(() => {
-      window.removeEventListener('deviceorientation', onTilt)
-      this.set('.tilt-status', seen ? 'INCLINAÇÃO ATIVA · O CENTRO É ZERADO AO COMEÇAR A CORRIDA.' : window.isSecureContext ? 'O APARELHO NÃO ESTÁ ENVIANDO A INCLINAÇÃO.' : 'ESTE ENDEREÇO NÃO É HTTPS, E O NAVEGADOR BLOQUEIA A INCLINAÇÃO. USE UM ENDEREÇO HTTPS.')
+      window.removeEventListener('devicemotion', onTilt)
+      this.set('.tilt-status', seen ? 'INCLINAÇÃO ATIVA · O CENTRO É ZERADO AO COMEÇAR A CORRIDA.' : window.isSecureContext ? 'O APARELHO NÃO ESTÁ ENVIANDO A INCLINAÇÃO.' : 'ESTE ENDEREÇO NÃO É HTTPS, E O NAVEGADOR BLOQUEIA A INCLINAÇÃO. USE UM ENDEREÇO HTTPS (OU LIBERE ESTE ENDEREÇO NO CHROME: chrome://flags → Insecure origins treated as secure).')
     }, 1600)
   }
 
