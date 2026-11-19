@@ -40,7 +40,7 @@ async function boot(): Promise<void> {
       const city = cityById(id)
       if (!city || !save.data.world.cities.includes(id)) return
       save.update({ city: id, scenario: city.theme })
-      game?.setScenario(city.theme as ScenarioId)
+      game?.setCity(id, city.theme as ScenarioId)
       ui.setDestination(id)
       ui.toast(`DESTINO: ${city.name.toUpperCase()}`)
       renderWorld()
@@ -332,6 +332,7 @@ async function boot(): Promise<void> {
   await preloadSupercar().catch(() => undefined) // optional: falls back to the procedural Gol if it cannot load
   const renderer = new Renderer(canvas, save.data.quality)
   game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound, playerVehicle: save.data.playerVehicle as PlayerVehicleId, scenario: save.data.scenario as ScenarioId, playerPaint: save.data.playerPaint, playerWheels: save.data.playerWheels, playerTint: save.data.playerTint, playerSpoiler: save.data.playerSpoiler, playerSuspension: save.data.playerSuspension, playerExhaust: save.data.playerExhaust, playerHeadlights: save.data.playerHeadlights })
+  game.setCity(save.data.city, save.data.scenario as ScenarioId)
   game.setPowerLevels(save.data.powerLevels)
   if (import.meta.env.DEV) {
     const [{ registerGameTuning }] = await Promise.all([import('../scripts/manus-tuning/adapter.js')])

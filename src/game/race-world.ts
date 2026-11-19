@@ -3,6 +3,8 @@ import { RACE_CONFIG } from './race-config'
 import { Sky } from './visuals/sky'
 import { Rain } from './visuals/rain'
 import { buildEnvironment } from './visuals/environment'
+import { MOODS, cityLook } from './city-looks'
+import { LANDMARK_SCALE, buildLandmark, disposeLandmarkGeometry, landmarkMaterials } from './landmarks'
 import { SCENARIOS, scenarioById, type Scenario, type ScenarioId } from './scenarios'
 import { asphaltTextures, facadeStyle, gantrySignTexture, glowTexture, neonTexture, pavementTexture, shopfrontTexture, seeded, streakTexture, type FacadeStyle } from './visuals/textures'
 
@@ -49,6 +51,12 @@ export class RaceWorld {
   private readonly envCache = new Map<ScenarioId, THREE.Texture>()
   private readonly groundMat = new THREE.MeshStandardMaterial({ color: '#0c1015', roughness: 1, metalness: 0 })
   private readonly fields: Array<(offset: number) => void> = []
+  private readonly landmarkMats = landmarkMaterials()
+  private readonly landmarks = new THREE.Group()
+  private landmarkProps: MovingProp[] = []
+  private cityId = ''
+  private skylineGroup: THREE.Group | null = null
+  private fogTint: { color: THREE.Color; weight: number } | null = null
   private clock = 0
   private scroll = 0
 
@@ -86,6 +94,7 @@ export class RaceWorld {
     this.target = this.desert
     this.addDeserto()
     this.scene.add(this.rain.mesh)
+    this.scene.add(this.landmarks)
     this.setScenario('cidade')
   }
 
@@ -117,6 +126,81 @@ export class RaceWorld {
     return sc
   }
 
+  /** Aplica o visual da cidade: clima por cima do cenário-base e monumentos reais passando ao lado da pista. */
+  setCity(cityId: string, theme: ScenarioId): Scenario {
+    this.fogTint = null
+    const base = this.setScenario(theme)
+    this.cityId = cityId
+    const look = cityLook(cityId)
+    const mood = MOODS[look.mood]
+    if (look.mood !== 'neon' || base.id !== 'cidade') {
+      const sky = { ...base.sky }
+      // serra e deserto já têm clima próprio: o da cidade só tinge de leve
+      const weight = base.id === 'cidade' ? 1 : 0.35
+      const mix = (from: readonly [number, number, number], to?: readonly [number, number, number]): [number, number, number] =>
+        to ? [from[0] + (to[0] - from[0]) * weight, from[1] + (to[1] - from[1]) * weight, from[2] + (to[2] - from[2]) * weight] : [from[0], from[1], from[2]]
+      sky.zenith = mix(sky.zenith, mood.zenith)
+      sky.mid = mix(sky.mid, mood.mid)
+      sky.horizon = mix(sky.horizon, mood.horizon)
+      sky.glow = mix(sky.glow, mood.glow)
+      this.sky.setPalette(sky)
+      if (mood.fog) { this.fogTint = { color: new THREE.Color(mood.fog), weight }; this.setRain(this.rain.enabled) }
+      if (mood.ground) this.groundMat.color.lerp(new THREE.Color(mood.ground), weight)
+    }
+    this.buildLandmarks(look.marks)
+    return base
+  }
+
+  private clearLandmarks(): void {
+    this.landmarks.clear()
+    for (const prop of this.props) if (prop.root.userData.building) { prop.root.visible = true; prop.root.scale.y = 1 }
+    if (this.skylineGroup) this.skylineGroup.scale.y = 1
+    this.landmarkProps = this.landmarkProps.filter(() => false)
+    for (let i = this.props.length - 1; i >= 0; i -= 1) if (this.props[i].root.userData.landmark) this.props.splice(i, 1)
+    disposeLandmarkGeometry()
+  }
+
+  /** Três monumentos da cidade se revezam ao longo da pista, sempre longe do asfalto, emergindo da névoa. */
+  private buildLandmarks(marks: readonly string[]): void {
+    this.clearLandmarks()
+    if (!marks.length) return
+    // ruas mais baixas deixam os monumentos aparecerem acima dos prédios
+    for (const prop of this.props) if (prop.root.userData.building) prop.root.scale.y = 0.3
+    if (this.skylineGroup) this.skylineGroup.scale.y = 0.35
+    const slots = 3
+    const spacing = 340
+    for (let i = 0; i < slots; i += 1) {
+      const id = marks[i % marks.length] as Parameters<typeof buildLandmark>[0]
+      const piece = buildLandmark(id, this.landmarkMats)
+      const group = piece.group
+      const boost = 1.3 * (LANDMARK_SCALE[id] ?? 1)
+      group.scale.setScalar(boost)
+      const half = piece.half * boost
+      const side = i % 2 === 0 ? 1 : -1
+      const root = new THREE.Group()
+      root.userData.landmark = true
+      group.position.x = 0
+      root.add(group)
+      root.position.set(side * (ROAD_HALF + 26 + half * 1.15), 0, -120 - i * spacing)
+      root.rotation.y = side * -0.35
+      // um brilho quente na base, como se o monumento fosse iluminado por refletores
+      const wash = new THREE.Mesh(new THREE.PlaneGeometry(half * 3.2, half * 3.2), this.additive('#ffcf8f', 0.4, this.glow))
+      wash.rotation.x = -Math.PI / 2
+      wash.position.y = 0.05
+      root.add(wash)
+      this.landmarks.add(root)
+      root.userData.half = half
+      root.userData.side = side
+      const prop = { root, homeZ: root.position.z, wrapAt: 60, wrapBy: slots * spacing }
+      this.props.push(prop)
+      this.landmarkProps.push(prop)
+    }
+  }
+
+  get currentCity(): string {
+    return this.cityId
+  }
+
   /** Fixed-step scrolling: road, markers and props rush toward the camera. */
   update(deltaMeters: number, dt: number): void {
     this.clock += dt
@@ -132,6 +216,24 @@ export class RaceWorld {
       if (prop.root.position.z > prop.wrapAt) prop.root.position.z -= prop.wrapBy
     }
     for (const apply of this.fields) apply(this.scroll)
+    this.openViewCorridors()
+  }
+
+  /** Enquanto um monumento se aproxima, os prédios entre o carro e ele (do mesmo lado) somem para ele aparecer. */
+  private openViewCorridors(): void {
+    if (!this.landmarkProps.length) return
+    for (const prop of this.props) {
+      const info = prop.root.userData.building as { side: number } | undefined
+      if (!info) continue
+      let blocked = false
+      for (const lm of this.landmarkProps) {
+        if (lm.root.userData.side !== info.side) continue
+        const lz = lm.root.position.z
+        if (lz > 40 || lz < -330) continue
+        if (prop.root.position.z > lz - (lm.root.userData.half as number) - 20) blocked = true
+      }
+      prop.root.visible = !blocked
+    }
   }
 
   /** Per-frame, time-based visuals (sky twinkle, rain, beacons) that run even on the title screen. */
@@ -157,6 +259,7 @@ export class RaceWorld {
     this.rain.enabled = on
     const f = this.current.fog
     this.scene.fog = new THREE.FogExp2(f.color, on ? f.rainDensity : f.density)
+    if (this.fogTint) (this.scene.fog as THREE.FogExp2).color.lerp(this.fogTint.color, this.fogTint.weight)
   }
 
   private additive(color: string, opacity: number, map: THREE.Texture): THREE.MeshBasicMaterial {
@@ -178,6 +281,7 @@ export class RaceWorld {
       group.add(tower)
       if (i % 4 === 0) this.addBeacon(group, x, h + 1.2, z, 6)
     }
+    this.skylineGroup = group
     this.target.add(group)
   }
 
@@ -348,6 +452,7 @@ export class RaceWorld {
           root.add(reflect)
         }
         root.position.z = z
+        root.userData.building = { side, homeZ: z, period: count * spacing }
         this.target.add(root)
         this.props.push({ root, homeZ: z, wrapAt: 40, wrapBy: count * spacing })
       }

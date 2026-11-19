@@ -196,6 +196,14 @@ export class RaceGame {
     return this.scenarioId
   }
 
+  /** Visual de uma cidade do mapa: tema-base + clima + monumentos reais. */
+  setCity(cityId: string, theme: ScenarioId): void {
+    this.scenarioId = theme
+    const scenario = this.world.setCity(cityId, theme)
+    this.setRain(scenario.rain && this.renderer.rainAllowed)
+    this.sound.setScene(theme, scenario.rain && this.renderer.rainAllowed)
+  }
+
   setScenario(id: ScenarioId): void {
     this.scenarioId = id
     const scenario = this.world.setScenario(id)
