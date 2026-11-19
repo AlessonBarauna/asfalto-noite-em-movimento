@@ -263,6 +263,17 @@ export class Soundscape {
     this.tone(180, 520, 0.6, 'sawtooth', 0.12)
   }
 
+  power(): void {
+    if (this.ctx.state !== 'running') return
+    ;[392, 587.33, 783.99, 1174.66].forEach((f, i) => this.tone(f, f * 1.01, 0.28, 'sine', 0.18, i * 0.06))
+    this.tone(120, 360, 0.45, 'triangle', 0.1)
+  }
+
+  powerEnd(): void {
+    if (this.ctx.state !== 'running') return
+    ;[784, 523.25, 392].forEach((f, i) => this.tone(f, f * 0.98, 0.22, 'triangle', 0.13, i * 0.1))
+  }
+
   levelUp(): void {
     if (this.ctx.state !== 'running') return
     ;[523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.tone(f, f * 1.003, 0.35, 'triangle', 0.16, i * 0.09))

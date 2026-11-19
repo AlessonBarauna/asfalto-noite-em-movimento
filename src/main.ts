@@ -7,6 +7,7 @@ import { SAVE_KEY, SaveStore, insertScore, type PlayerVehicleId } from './engine
 import { preloadSupercar } from './game/supercar'
 import type { ScenarioId } from './game/scenarios'
 import { RaceGame, type RaceResult } from './game/race-game'
+import { POWERS, buyPowerUpgrade } from './game/powers'
 import { applyRun, buyCity, buyCountry, cityById, cityMultiplier, countryById, countryOfCity, rankLevel, rankLabel, requiredRank, vehicleUnlockId, xpForRun, type RunSummary } from './game/career'
 import { calculateRacePayout, purchaseVehicle as buyVehicle, purchasePaint as buyPaint, purchaseWheels as buyWheels, purchaseTint as buyTint, purchaseSpoiler as buySpoiler, purchaseSuspension as buySuspension, purchaseExhaust as buyExhaust, purchaseHeadlights as buyHeadlights } from './game/economy'
 import { tuning } from './game/tuning'
@@ -60,6 +61,15 @@ async function boot(): Promise<void> {
     },
     setSensitivity: value => { save.update({ sensitivity: value }); input.sensitivity = save.data.sensitivity; ui.setSensitivity(save.data.sensitivity) },
     openLeaderboard: () => { ui.showLeaderboard(save.data.leaderboard) },
+    openPowers: () => ui.showPowers(save.data.powerLevels, save.data.credits),
+    purchasePower: id => {
+      const result = buyPowerUpgrade(save.data.credits, save.data.powerLevels, id)
+      if (!result.success) { ui.toast(result.reason === 'max-level' ? 'NÍVEL MÁXIMO' : 'CRÉDITOS INSUFICIENTES'); return }
+      save.update({ credits: result.balance, powerLevels: result.levels })
+      game?.setPowerLevels(result.levels)
+      ui.toast(`${POWERS[id].label} EVOLUÍDO · NÍVEL ${result.levels[id]}`)
+      ui.showPowers(result.levels, result.balance)
+    },
     openGarage: () => { ui.showGarage(save.data.playerVehicle, save.data.unlockedVehicles, save.data.credits, save.data.playerPaint, save.data.unlockedPaints, save.data.playerWheels, save.data.unlockedWheels, save.data.playerTint, save.data.unlockedTints, save.data.playerSpoiler, save.data.unlockedSpoilers, save.data.playerSuspension, save.data.unlockedSuspensions, save.data.playerExhaust, save.data.unlockedExhausts, save.data.playerHeadlights, save.data.unlockedHeadlights) },
     selectVehicle: model => {
       if (!save.data.unlockedVehicles.includes(model)) return
@@ -244,6 +254,7 @@ async function boot(): Promise<void> {
   await preloadSupercar().catch(() => undefined) // optional: falls back to the procedural Gol if it cannot load
   const renderer = new Renderer(canvas, save.data.quality)
   game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound, playerVehicle: save.data.playerVehicle as PlayerVehicleId, scenario: save.data.scenario as ScenarioId, playerPaint: save.data.playerPaint, playerWheels: save.data.playerWheels, playerTint: save.data.playerTint, playerSpoiler: save.data.playerSpoiler, playerSuspension: save.data.playerSuspension, playerExhaust: save.data.playerExhaust, playerHeadlights: save.data.playerHeadlights })
+  game.setPowerLevels(save.data.powerLevels)
   if (import.meta.env.DEV) {
     const [{ registerGameTuning }] = await Promise.all([import('../scripts/manus-tuning/adapter.js')])
     void registerGameTuning(tuning)
