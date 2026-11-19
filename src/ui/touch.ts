@@ -69,7 +69,7 @@ export class TouchControls {
     window.addEventListener('pointercancel', end)
 
     for (const btn of layer.querySelectorAll<HTMLElement>('[data-touch]')) {
-      const action = btn.dataset.touch as 'sprint' | 'dash'
+      const action = btn.dataset.touch as 'sprint' | 'dash' | 'jump'
       btn.addEventListener('pointerdown', e => {
         e.preventDefault()
         btn.setPointerCapture(e.pointerId)

@@ -152,3 +152,5 @@
 .wc-buy:disabled{color:#ffcf99}
 .wc-city.is-buy{color:#ffd29a}.wc-city small{font-size:11px;color:#c3cfd4}
 .ws-stage:first-of-type .wc-card{grid-column:1/-1}
+
+.touch-btn[data-touch=jump]{border-color:#9fd6ff;color:#cfeaff}

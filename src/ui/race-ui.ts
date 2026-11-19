@@ -416,7 +416,7 @@ export class RaceUI {
 <section class="screen screen-modal" data-screen="leaderboard"><button class="back-btn" data-action="back">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · RECORDES</div><h2>${copy['leaderboard.title']}</h2><div class="board-source">${copy['leaderboard.local']}</div><ol class="score-list"><li class="score-empty">${copy['leaderboard.empty']}</li></ol>
   <div class="modal-menu"><button class="game-btn" data-action="back">${copy['menu.back']}</button></div>
 </div></section>
-<div class="touch" aria-hidden="true"><div class="touch-stick"><i></i></div><div class="touch-actions"><button class="touch-btn" data-touch="sprint">${copy['touch.accelerate']}</button><button class="touch-btn" data-touch="dash">${copy['touch.nitro']}</button></div></div>
+<div class="touch" aria-hidden="true"><div class="touch-stick"><i></i></div><div class="touch-actions"><button class="touch-btn" data-touch="jump">PULAR</button><button class="touch-btn" data-touch="sprint">${copy['touch.accelerate']}</button><button class="touch-btn" data-touch="dash">${copy['touch.nitro']}</button></div></div>
 `
   }
 }
