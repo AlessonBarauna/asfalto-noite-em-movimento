@@ -1,3 +1,4 @@
+import { CLEAR_REMOVES, FIRST_PICKUP_DISTANCE, POWERS, POWER_IDS, nextPickupGap, pickPower, powerFraction, type PowerId } from './powers'
 import * as THREE from 'three'
 import type { Audio } from '../engine/audio'
 import { Soundscape } from '../engine/soundscape'
@@ -29,6 +30,7 @@ export type RaceSnapshot = {
   level: number
   carsJumped: number
   hits: number
+  power: { label: string; color: string; fraction: number } | null
   mode: 'title' | 'playing' | 'paused' | 'ended'
 }
 
@@ -62,6 +64,15 @@ export class RaceGame {
   private elapsed = 0
   private lives: number = RACE_CONFIG.startingLives
   private nearMisses = 0
+  private power: PowerId | null = null
+  private powerTimer = 0
+  private flyY = 0
+  private altitude = 0
+  private pickupGap = FIRST_PICKUP_DISTANCE
+  private readonly pickups: Array<{ mesh: THREE.Group; id: PowerId }> = []
+  private readonly pickupProtos = new Map<PowerId, THREE.Group>()
+  private aura!: THREE.Mesh
+  private readonly wings = new THREE.Group()
   private carsJumped = 0
   private hits = 0
   private scenarioId: ScenarioId = 'cidade'
@@ -109,6 +120,7 @@ export class RaceGame {
     this.player.position.set(0, 0.02, RACE_CONFIG.playerZ)
     this.createTrafficPool()
     this.createCarLights()
+    this.createPowerVisuals()
     this.world.scene.add(this.effects.mesh)
     this.sound = new Soundscape(audio)
     this.sound.start()
@@ -209,6 +221,7 @@ export class RaceGame {
     this.nearMisses = 0
     this.carsJumped = 0
     this.hits = 0
+    this.clearPowers()
     this.spawnTimer = 0.95
     this.invulnerable = 0
     this.boostTimer = 0
@@ -290,7 +303,14 @@ export class RaceGame {
         this.effects.burst(new THREE.Vector3(this.x, 0.15, RACE_CONFIG.playerZ), '#cfd8dc', 10, 3)
       }
     }
-    this.player.position.y = this.jumpY
+    // Poderes: o orbe vale por alguns segundos; as asas mantêm o carro no alto.
+    this.powerTimer = Math.max(0, this.powerTimer - dt)
+    if (this.power && this.powerTimer <= 0) this.endPower()
+    const flying = this.power === 'wings'
+    this.flyY = THREE.MathUtils.damp(this.flyY, flying ? 3.5 + Math.sin(this.elapsed * 3) * 0.18 : 0, flying ? 3 : 4.5, dt)
+    this.altitude = Math.max(this.jumpY, this.flyY)
+    this.updatePowerVisuals(dt)
+    this.player.position.y = this.altitude
     this.playerVisual.rotation.x = THREE.MathUtils.clamp(this.jumpV * 0.011, -0.11, 0.11)
 
     const level = levelForDistance(this.distance)
@@ -325,6 +345,7 @@ export class RaceGame {
     this.updateTraffic(movement)
     this.spawnTimer -= dt
     if (this.spawnTimer <= 0) this.spawnTraffic()
+    this.updatePickups(movement, dt)
     if (this.engineVoice && this.engineVoice.playbackRate) {
       this.engineVoice.playbackRate.setTargetAtTime(0.84 + Math.min(0.5, this.speed / 120), this.audio.ctx.currentTime, 0.08)
     }
@@ -398,6 +419,7 @@ export class RaceGame {
       level: levelForDistance(this.distance),
       carsJumped: this.carsJumped,
       hits: this.hits,
+      power: this.power ? { label: POWERS[this.power].label, color: POWERS[this.power].color, fraction: powerFraction(this.power, this.powerTimer) } : null,
       mode: this.mode,
     }
   }
@@ -426,14 +448,14 @@ export class RaceGame {
   /** Oncoming cars carry headlight halos and a wet-road reflection streak. */
   private addTrafficGlow(root: THREE.Group, width: number, length: number): void {
     for (const side of [-1, 1]) {
-      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#fff1d0', transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#fff1d0', transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }))
       halo.scale.setScalar(1.35)
       halo.position.set(side * width * 0.31, 0.78, length * 0.5 + 0.12)
       root.add(halo)
     }
     const beam = new THREE.Mesh(
       new THREE.PlaneGeometry(width * 1.7, 15),
-      new THREE.MeshBasicMaterial({ color: '#ffe6bd', map: this.streak, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+      new THREE.MeshBasicMaterial({ color: '#ffe6bd', map: this.streak, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }),
     )
     beam.rotation.x = -Math.PI / 2
     beam.position.set(0, 0.03, length * 0.5 + 7.2)
@@ -448,26 +470,26 @@ export class RaceGame {
       spot.target.position.set(side * 0.4, 0, RACE_CONFIG.playerZ - 38)
       this.carLights.add(spot, spot.target)
       this.headSpots.push(spot)
-      const tail = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#ff2a1c', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
+      const tail = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#ff2a1c', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }))
       tail.scale.setScalar(1.7)
       tail.position.set(side * 0.72, 0.84, RACE_CONFIG.playerZ + 2.05)
       this.carLights.add(tail)
       this.tailGlows.push(tail)
-      const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#6cc4ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
+      const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#6cc4ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }))
       flame.position.set(side * 0.55, 0.34, RACE_CONFIG.playerZ + 2.5)
       this.carLights.add(flame)
       this.nitroFlames.push(flame)
     }
     const beam = new THREE.Mesh(
       new THREE.PlaneGeometry(4.6, 34),
-      new THREE.MeshBasicMaterial({ color: '#ffe3b0', map: this.streak, transparent: true, opacity: 0.13, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+      new THREE.MeshBasicMaterial({ color: '#ffe3b0', map: this.streak, transparent: true, opacity: 0.13, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }),
     )
     beam.rotation.x = -Math.PI / 2
     beam.position.set(0, 0.03, RACE_CONFIG.playerZ - 19)
     this.carLights.add(beam)
     const tailStreak = new THREE.Mesh(
       new THREE.PlaneGeometry(2.6, 9),
-      new THREE.MeshBasicMaterial({ color: '#ff3b2a', map: this.streak, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+      new THREE.MeshBasicMaterial({ color: '#ff3b2a', map: this.streak, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }),
     )
     tailStreak.rotation.set(-Math.PI / 2, 0, Math.PI)
     tailStreak.position.set(0, 0.03, RACE_CONFIG.playerZ + 6.4)
@@ -497,7 +519,7 @@ export class RaceGame {
   private spawnTraffic(): void {
     const activeCount = this.traffic.filter(car => car.active).length
     const difficulty = trafficDifficultyByDistance(this.distance)
-    this.spawnTimer = Math.max((difficulty.interval / this.trafficBoost) * (0.9 + this.random() * 0.2), activeCount > 5 ? 0.58 : 0)
+    this.spawnTimer = Math.max((difficulty.interval * (this.power === 'clear' ? 4 : 1) / this.trafficBoost) * (0.9 + this.random() * 0.2), activeCount > 5 ? 0.58 : 0)
 
     // Later in the run, occasional two-car waves leave one readable escape lane.
     const wanted = trafficWaveSizeByDistance(this.distance, this.random())
@@ -541,9 +563,9 @@ export class RaceGame {
       const hitX = Math.abs(this.x - trafficX) < (car.width + 1.12) * 0.5
       const hitZ = Math.abs(RACE_CONFIG.playerZ - car.root.position.z) < (car.length + 3.15) * 0.5
       if (car.height === 0) car.height = Math.max(1.2, new THREE.Box3().setFromObject(car.root).max.y)
-      const clearsCar = this.jumpY > car.height * 0.82
-      if (hitX && hitZ && clearsCar) car.jumped = true
-      if (this.invulnerable <= 0 && hitX && hitZ && !clearsCar) {
+      const clearsCar = this.altitude > car.height * 0.82
+      if (hitX && hitZ && clearsCar && this.power === null && this.flyY < 0.3) car.jumped = true
+      if (this.invulnerable <= 0 && this.power !== 'ghost' && hitX && hitZ && !clearsCar) {
         car.active = false
         car.root.visible = false
         this.lives = Math.max(0, this.lives - 1)
@@ -569,6 +591,118 @@ export class RaceGame {
       if (car.root.position.z > RACE_CONFIG.playerZ + 15) {
         car.active = false
         car.root.visible = false
+      }
+    }
+  }
+
+  /** Aura colorida, asas e orbes (protótipos reaproveitados a cada sorteio). */
+  private createPowerVisuals(): void {
+    const aura = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 20, 14),
+      new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false }),
+    )
+    aura.scale.set(1.5, 0.95, 2.9)
+    aura.position.set(0, 0.8, 0)
+    aura.visible = false
+    this.aura = aura
+    this.player.add(aura)
+    const wingMat = new THREE.MeshBasicMaterial({ color: POWERS.wings.color, transparent: true, opacity: 0.8, toneMapped: false, fog: false, side: THREE.DoubleSide })
+    for (const side of [-1, 1]) {
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.05, 0.8), wingMat)
+      wing.position.set(side * 1.65, 0.85, 0.1)
+      wing.rotation.z = side * 0.18
+      this.wings.add(wing)
+    }
+    this.wings.visible = false
+    this.player.add(this.wings)
+    for (const id of POWER_IDS) {
+      const color = POWERS[id].color
+      const group = new THREE.Group()
+      const core = new THREE.Mesh(
+        id === 'clear' ? new THREE.SphereGeometry(0.42, 18, 12) : id === 'wings' ? new THREE.ConeGeometry(0.45, 0.9, 4) : new THREE.IcosahedronGeometry(0.45, 0),
+        new THREE.MeshBasicMaterial({ color, toneMapped: false, fog: false }),
+      )
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.055, 8, 28), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, toneMapped: false, fog: false }))
+      const glow = new THREE.Mesh(new THREE.SphereGeometry(1.05, 14, 10), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false }))
+      group.add(core, ring, glow)
+      this.pickupProtos.set(id, group)
+    }
+  }
+
+  private updatePowerVisuals(dt: number): void {
+    const on = this.power !== null && this.mode === 'playing'
+    this.aura.visible = on
+    this.wings.visible = this.power === 'wings'
+    if (on && this.power) {
+      ;(this.aura.material as THREE.MeshBasicMaterial).color.set(POWERS[this.power].color)
+      ;(this.aura.material as THREE.MeshBasicMaterial).opacity = 0.16 + Math.sin(this.elapsed * 8) * 0.06 + (this.power === 'ghost' ? 0.08 : 0)
+      const left = this.powerTimer < 1.6 && Math.floor(this.elapsed * 8) % 2 === 0
+      if (left) this.aura.visible = false // pisca no final para avisar que acaba
+    }
+    if (this.power === 'wings') {
+      const flap = Math.sin(this.elapsed * 14) * 0.22
+      this.wings.children.forEach((wing, i) => { wing.rotation.z = (i === 0 ? -1 : 1) * (0.18 + flap) })
+    }
+    void dt
+  }
+
+  private grantPower(id: PowerId): void {
+    this.power = id
+    this.powerTimer = POWERS[id].seconds
+    this.sound.power()
+    this.effects.burst(new THREE.Vector3(this.x, 1.1, RACE_CONFIG.playerZ - 0.6), POWERS[id].color, 26, 7)
+    if (id === 'clear') {
+      let n = 0
+      for (const car of this.traffic) {
+        if (!car.active || car.root.position.z > RACE_CONFIG.playerZ - 18) continue
+        if ((n++ % 3) / 3 >= CLEAR_REMOVES) continue
+        this.effects.burst(new THREE.Vector3(car.root.position.x, 0.9, car.root.position.z), POWERS.clear.color, 8, 4)
+        car.active = false
+        car.root.visible = false
+      }
+    }
+  }
+
+  private endPower(): void {
+    if (this.power === 'wings' || this.power === 'ghost') this.invulnerable = Math.max(this.invulnerable, 1.1)
+    this.power = null
+    this.sound.powerEnd()
+  }
+
+  private clearPowers(): void {
+    this.power = null
+    this.powerTimer = 0
+    this.flyY = 0
+    this.altitude = 0
+    this.pickupGap = FIRST_PICKUP_DISTANCE
+    for (const pickup of this.pickups) this.world.scene.remove(pickup.mesh)
+    this.pickups.length = 0
+    if (this.aura) { this.aura.visible = false; this.wings.visible = false }
+  }
+
+  private updatePickups(movement: number, dt: number): void {
+    this.pickupGap -= movement
+    if (this.pickupGap <= 0) {
+      this.pickupGap = nextPickupGap(this.random())
+      const id = pickPower(this.random())
+      const proto = this.pickupProtos.get(id)
+      if (proto) {
+        const mesh = proto.clone(true)
+        mesh.position.set(laneCenter(Math.floor(this.random() * 3)), 1.15, -RACE_CONFIG.spawnDistance)
+        this.world.scene.add(mesh)
+        this.pickups.push({ mesh, id })
+      }
+    }
+    for (let i = this.pickups.length - 1; i >= 0; i--) {
+      const { mesh, id } = this.pickups[i]
+      mesh.position.z += movement
+      mesh.rotation.y += dt * 2.4
+      mesh.position.y = 1.15 + Math.sin(this.elapsed * 3 + i) * 0.14
+      const taken = Math.abs(mesh.position.z - RACE_CONFIG.playerZ) < 1.9 && Math.abs(mesh.position.x - this.x) < 1.7
+      if (taken) this.grantPower(id)
+      if (taken || mesh.position.z > RACE_CONFIG.playerZ + 8) {
+        this.world.scene.remove(mesh)
+        this.pickups.splice(i, 1)
       }
     }
   }

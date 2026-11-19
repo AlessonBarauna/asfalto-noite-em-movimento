@@ -13,6 +13,7 @@ export type RaceUiState = {
   lives: number
   nearMisses: number
   nitro: number
+  power?: { label: string; color: string; fraction: number } | null
   mode: 'title' | 'playing' | 'paused' | 'ended'
 }
 
@@ -101,6 +102,18 @@ export class RaceUI {
     this.root.querySelectorAll<HTMLElement>('.damage').forEach((el, i) => el.classList.toggle('is-empty', i >= state.lives))
     const nitro = this.root.querySelector<HTMLElement>('.nitro-track i')
     if (nitro) nitro.style.transform = `scaleX(${Math.max(0, Math.min(1, state.nitro))})`
+    const widget = this.root.querySelector<HTMLElement>('.power-widget')
+    if (widget) {
+      const power = state.power ?? null
+      widget.classList.toggle('is-on', !!power)
+      if (power) {
+        widget.style.setProperty('--power', power.color)
+        const label = widget.querySelector('b')
+        if (label && label.textContent !== power.label) label.textContent = power.label
+        const bar = widget.querySelector<HTMLElement>('i')
+        if (bar) bar.style.transform = `scaleX(${Math.max(0, Math.min(1, power.fraction))})`
+      }
+    }
     const miss = this.root.querySelector<HTMLElement>('.hud-near-miss')
     if (miss) miss.textContent = state.nearMisses ? `${state.nearMisses} ${copy['results.nearMiss']}` : ''
   }
@@ -483,6 +496,7 @@ export class RaceUI {
     <div class="hud-right"><div class="hud-block hud-speed"><div class="hud-speed-value">0<small>${copy['hud.speed']}</small></div><div class="hud-speed-label">${copy['hud.damage']}</div><div class="damage-row"><i class="damage"></i><i class="damage"></i><i class="damage"></i></div></div><button class="pause-btn" data-action="pause" aria-label="${copy['menu.pause']}">Ⅱ</button></div>
   </div>
   <div class="nitro-widget"><div class="nitro-label"><span>${copy['hud.nitro']}</span><span>F</span></div><div class="nitro-track"><i></i></div></div>
+  <div class="power-widget"><b></b><span><i></i></span></div>
   <div class="center-notice"></div>
 </section>
 <section class="screen screen-modal" data-screen="pause"><button class="back-btn" data-action="resume">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · PAUSA</div><h2>${copy['pause.title']}</h2><p>${copy['pause.subtitle']}</p>
