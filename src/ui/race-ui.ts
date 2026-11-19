@@ -3,6 +3,7 @@ import type { PlayerVehicleId, ScoreEntry } from '../engine/save'
 import { PAINT_OPTIONS, VEHICLE_PRICES, WHEEL_OPTIONS, TINT_OPTIONS, SPOILER_OPTIONS, SUSPENSION_OPTIONS, EXHAUST_OPTIONS, HEADLIGHT_OPTIONS } from '../game/economy'
 import { BRAZILIAN_TRAFFIC_MODELS } from '../game/traffic-vehicles'
 import { SUPERCAR } from '../game/supercar'
+import { controlPrefs, requestTiltPermission, PAD_LABELS, type PadId, type ControlScheme } from './controls-prefs'
 import { rankStatus, nextUnlocks, requiredRank, vehicleUnlockId, STAGES, COUNTRIES, stageRank, countryTicket, cityTicket, cityById, countryOfCity, type RunReport, type WorldState } from '../game/career'
 
 export type RaceUiState = {
@@ -48,11 +49,12 @@ export type RaceUiActions = {
 }
 
 export class RaceUI {
-  screen: 'boot' | 'title' | 'hud' | 'pause' | 'results' | 'leaderboard' | 'garage' | 'world' = 'boot'
+  screen: 'boot' | 'title' | 'hud' | 'pause' | 'results' | 'leaderboard' | 'garage' | 'world' | 'controls' | 'layout' = 'boot'
   private readonly root: HTMLElement
   private noticeTimer = 0
   private returnAfterBoard: RaceUI['screen'] = 'title'
   private returnAfterGarage: RaceUI['screen'] = 'title'
+  private returnAfterControls: RaceUI['screen'] = 'title'
   constructor(root: HTMLElement, private readonly actions: RaceUiActions) {
     this.root = root
     this.root.innerHTML = this.template()
@@ -285,6 +287,8 @@ export class RaceUI {
     const paint = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-paint]')
     if (paint?.dataset.paint) { this.actions.selectPaint(paint.dataset.paint); return }
     const target = event.target as HTMLElement
+    const schemeBtn = target.closest<HTMLButtonElement>('.scheme-opt')
+    if (schemeBtn?.dataset.scheme) { this.chooseScheme(schemeBtn.dataset.scheme as ControlScheme); return }
     const worldCity = target.closest<HTMLButtonElement>('[data-world-city]')
     if (worldCity?.dataset.worldCity) { this.actions.selectCity(worldCity.dataset.worldCity); return }
     const worldBuyCountry = target.closest<HTMLButtonElement>('[data-world-buy-country]')
@@ -314,8 +318,85 @@ export class RaceUI {
       case 'garage-back': this.show(this.returnAfterGarage); break
       case 'world': this.actions.openWorld(); break
       case 'world-back': this.show('title'); break
+      case 'controls': this.openControls(); break
+      case 'controls-back': this.show(this.returnAfterControls); break
+      case 'layout': this.openLayout(); break
+      case 'layout-done': this.show('controls'); break
+      case 'layout-reset': controlPrefs.resetPads(); this.buildLayout(); break
       case 'back': this.show(this.returnAfterBoard); break
     }
+  }
+
+  private openControls(): void {
+    if (this.screen !== 'layout') this.returnAfterControls = this.screen === 'pause' ? 'pause' : 'title'
+    this.refreshControls()
+    this.show('controls')
+  }
+
+  private refreshControls(): void {
+    const prefs = controlPrefs.get()
+    this.root.querySelectorAll<HTMLElement>('.scheme-opt').forEach(btn => {
+      const on = btn.dataset.scheme === prefs.scheme
+      btn.classList.toggle('is-selected', on)
+      btn.setAttribute('aria-pressed', String(on))
+    })
+    const invert = this.root.querySelector<HTMLInputElement>('.tilt-invert')
+    if (invert) invert.checked = prefs.invertTilt
+    this.root.querySelector('.tilt-row')?.classList.toggle('is-hidden', prefs.scheme !== 'tilt')
+  }
+
+  private async chooseScheme(scheme: ControlScheme): Promise<void> {
+    controlPrefs.update({ scheme })
+    this.refreshControls()
+    if (scheme !== 'tilt') { this.set('.tilt-status', ''); return }
+    const ok = await requestTiltPermission()
+    if (!ok) { this.set('.tilt-status', 'SEM PERMISSÃO PARA LER A INCLINAÇÃO. LIBERE O SENSOR DE MOVIMENTO NO NAVEGADOR.'); return }
+    this.set('.tilt-status', 'INCLINE O CELULAR PARA TESTAR…')
+    let seen = false
+    const onTilt = (e: DeviceOrientationEvent) => { if (e.gamma !== null || e.beta !== null) seen = true }
+    window.addEventListener('deviceorientation', onTilt)
+    window.setTimeout(() => {
+      window.removeEventListener('deviceorientation', onTilt)
+      this.set('.tilt-status', seen ? 'INCLINAÇÃO ATIVA · O CENTRO É ZERADO AO COMEÇAR A CORRIDA.' : window.isSecureContext ? 'O APARELHO NÃO ESTÁ ENVIANDO A INCLINAÇÃO.' : 'ESTE ENDEREÇO NÃO É HTTPS, E O NAVEGADOR BLOQUEIA A INCLINAÇÃO. USE UM ENDEREÇO HTTPS.')
+    }, 1600)
+  }
+
+  private openLayout(): void {
+    this.buildLayout()
+    this.show('layout')
+  }
+
+  /** Mostra os botões do tipo de controle atual para o jogador arrastar até onde quiser. */
+  private buildLayout(): void {
+    const stage = this.root.querySelector<HTMLElement>('.layout-stage')
+    if (!stage) return
+    const prefs = controlPrefs.get()
+    const ids: PadId[] = prefs.scheme === 'buttons' ? ['left', 'right', 'jump', 'sprint', 'dash'] : ['jump', 'sprint', 'dash']
+    stage.innerHTML = ids.map(id => `<div class="lay-btn" data-pad="${id}" style="left:${prefs.pads[id].x * 100}%;top:${prefs.pads[id].y * 100}%">${PAD_LABELS[id]}</div>`).join('')
+    stage.querySelectorAll<HTMLElement>('.lay-btn').forEach(el => {
+      el.addEventListener('pointerdown', e => {
+        e.preventDefault()
+        el.setPointerCapture(e.pointerId)
+        el.classList.add('is-drag')
+        const move = (ev: PointerEvent) => {
+          const rect = stage.getBoundingClientRect()
+          const x = Math.min(0.97, Math.max(0.03, (ev.clientX - rect.left) / rect.width))
+          const y = Math.min(0.97, Math.max(0.03, (ev.clientY - rect.top) / rect.height))
+          el.style.left = `${x * 100}%`
+          el.style.top = `${y * 100}%`
+          controlPrefs.setPad(el.dataset.pad as PadId, { x, y })
+        }
+        const end = () => {
+          el.classList.remove('is-drag')
+          el.removeEventListener('pointermove', move)
+          el.removeEventListener('pointerup', end)
+          el.removeEventListener('pointercancel', end)
+        }
+        el.addEventListener('pointermove', move)
+        el.addEventListener('pointerup', end)
+        el.addEventListener('pointercancel', end)
+      })
+    })
   }
 
   /** Mostra na tela de título a cidade escolhida no mapa-múndi. */
@@ -369,6 +450,8 @@ export class RaceUI {
     if (this.screen === 'garage') this.show(this.returnAfterGarage)
     else if (this.screen === 'leaderboard') this.show(this.returnAfterBoard)
     else if (this.screen === 'world') this.show('title')
+    else if (this.screen === 'controls') this.show(this.returnAfterControls)
+    else if (this.screen === 'layout') this.show('controls')
   }
 
   private set(selector: string, value: string): void {
@@ -391,32 +474,37 @@ export class RaceUI {
     <label class="pilot-input"><span>NOME NO PLACAR</span><input class="driver-name" name="pilot" type="text" maxlength="16" value="PILOTO" autocomplete="nickname" aria-label="Nome do piloto no placar" /></label>
     <button class="dest-btn" data-action="world"><span>DESTINO</span><b class="dest-name">🇧🇷 São Paulo</b><small class="dest-sub">Brasil · ABRIR MAPA</small></button>
     <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
-    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
+    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="controls">CONTROLES <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
   </div>
   <div class="title-wallet">SALDO <b><span class="wallet-balance">0</span> CR</b></div><div class="title-best">RECORDE LOCAL <b class="title-best-value">0</b><span class="title-sub">MAIOR DISTÂNCIA <i class="title-dist-value">0 km</i></span><span class="title-sub">TOTAL RODADO <i class="title-total-value">0 km</i></span></div>
-  <div class="title-foot">${copy['hint.keyboard']}</div>
 </section>
 <section class="screen screen-hud" data-screen="hud">
   <div class="hud-top"><div class="hud-block"><div class="hud-score-label">${copy['hud.score']}</div><div class="hud-score-value">0</div><div class="hud-meta"><span class="hud-distance-value">0,00 KM</span><span class="hud-near-miss"></span></div></div>
     <div class="hud-right"><div class="hud-block hud-speed"><div class="hud-speed-value">0<small>${copy['hud.speed']}</small></div><div class="hud-speed-label">${copy['hud.damage']}</div><div class="damage-row"><i class="damage"></i><i class="damage"></i><i class="damage"></i></div></div><button class="pause-btn" data-action="pause" aria-label="${copy['menu.pause']}">Ⅱ</button></div>
   </div>
-  <div class="hud-hint">${copy['hint.keyboard']}</div><div class="nitro-widget"><div class="nitro-label"><span>${copy['hud.nitro']}</span><span>F</span></div><div class="nitro-track"><i></i></div></div>
+  <div class="nitro-widget"><div class="nitro-label"><span>${copy['hud.nitro']}</span><span>F</span></div><div class="nitro-track"><i></i></div></div>
   <div class="center-notice"></div>
 </section>
 <section class="screen screen-modal" data-screen="pause"><button class="back-btn" data-action="resume">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · PAUSA</div><h2>${copy['pause.title']}</h2><p>${copy['pause.subtitle']}</p>
   <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
-  <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="garage">GARAGEM</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
+  <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="garage">GARAGEM</button><button class="game-btn" data-action="controls">CONTROLES</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
 <section class="screen screen-modal" data-screen="results"><button class="back-btn" data-action="title">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · RESULTADO</div><h2>${copy['results.title']}</h2><div class="record-badge">${copy['results.best']}</div>
   <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="payout-panel"><span>RECOMPENSA DA CORRIDA</span><strong class="result-credits">+0 CR</strong><small>SALDO: <b class="result-balance">0</b> CR</small></div><div class="result-career"></div><div class="modal-tag result-note"></div>
   <div class="modal-menu"><button class="game-btn primary" data-action="restart">${copy['results.retry']}</button><button class="game-btn" data-action="leaderboard">${copy['results.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
+<section class="screen screen-modal" data-screen="controls"><button class="back-btn" data-action="controls-back">← VOLTAR</button><div class="modal controls-modal"><div class="eyebrow">ASFALTO · CONTROLES</div><h2>COMO VOCÊ DIRIGE</h2><p>Vale para o celular. No computador continuam as setas, A/D, W/S, espaço e F.</p>
+  <div class="scheme-row"><button class="scheme-opt" data-scheme="touch" aria-pressed="false"><b>TOQUE</b><small>Arraste o dedo na tela para desviar</small></button><button class="scheme-opt" data-scheme="buttons" aria-pressed="false"><b>BOTÕES</b><small>Setas ◀ ▶ na tela</small></button><button class="scheme-opt" data-scheme="tilt" aria-pressed="false"><b>INCLINAR</b><small>Incline o celular para os lados</small></button></div>
+  <label class="tilt-row is-hidden"><input type="checkbox" class="tilt-invert" /> <span>INVERTER O LADO DA INCLINAÇÃO</span></label><div class="tilt-status" aria-live="polite"></div>
+  <div class="modal-menu"><button class="game-btn" data-action="layout">POSICIONAR BOTÕES</button><button class="game-btn primary" data-action="controls-back">PRONTO</button></div>
+</div></section>
+<section class="screen screen-layout" data-screen="layout"><div class="layout-bar"><b>ARRASTE CADA BOTÃO PARA ONDE QUISER</b><button class="game-btn" data-action="layout-reset">RESTAURAR</button><button class="game-btn primary" data-action="layout-done">CONCLUIR</button></div><div class="layout-stage"></div></section>
 <section class="screen screen-modal screen-world" data-screen="world"><button class="back-btn" data-action="world-back">← VOLTAR</button><div class="world-wrap"><header class="world-head"><div class="eyebrow">ASFALTO · MAPA-MÚNDI</div><h2>Para onde vai a madrugada?</h2><p>A patente libera a região; a passagem libera o país. SALDO <b><span class="world-credits">0</span> CR</b></p></header><div class="world-list"></div></div></section>
 <section class="screen screen-modal" data-screen="garage"><button class="back-btn" data-action="garage-back">← VOLTAR</button><div class="garage-hint">ARRASTE PARA GIRAR O CARRO · RODA DO MOUSE PARA ZOOM · DUPLO CLIQUE RESTAURA</div><div class="modal garage-modal"><div class="eyebrow">ASFALTO · GARAGEM</div><h2>ESCOLHA SEU CARRO</h2><p>Compre novos veículos com os créditos conquistados nas corridas. O Gol G5 continua sendo seu carro inicial.</p><div class="garage-wallet">SALDO DISPONÍVEL: <strong class="garage-balance"></strong> CR</div><div class="garage-notice" aria-live="polite"></div><h3 class="garage-section-title">PINTURA</h3><div class="paint-grid"></div><h3 class="garage-section-title">RODAS E AROS</h3><div class="wheel-grid accessory-grid"></div><h3 class="garage-section-title">INSULFILM</h3><div class="tint-grid accessory-grid"></div><h3 class="garage-section-title">AEROFÓLIO</h3><div class="spoiler-grid accessory-grid"></div><h3 class="garage-section-title">SUSPENSÃO</h3><div class="suspension-grid accessory-grid"></div><h3 class="garage-section-title">ESCAPAMENTO</h3><div class="exhaust-grid accessory-grid"></div><h3 class="garage-section-title">FARÓIS</h3><div class="headlight-grid accessory-grid"></div><h3 class="garage-section-title">VEÍCULOS</h3><div class="garage-grid"></div><div class="modal-menu"><button class="game-btn" data-action="garage-back">VOLTAR</button></div></div></section>
 <section class="screen screen-modal" data-screen="leaderboard"><button class="back-btn" data-action="back">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · RECORDES</div><h2>${copy['leaderboard.title']}</h2><div class="board-source">${copy['leaderboard.local']}</div><ol class="score-list"><li class="score-empty">${copy['leaderboard.empty']}</li></ol>
   <div class="modal-menu"><button class="game-btn" data-action="back">${copy['menu.back']}</button></div>
 </div></section>
-<div class="touch" aria-hidden="true"><div class="touch-stick"><i></i></div><div class="touch-actions"><button class="touch-btn" data-touch="jump">PULAR</button><button class="touch-btn" data-touch="sprint">${copy['touch.accelerate']}</button><button class="touch-btn" data-touch="dash">${copy['touch.nitro']}</button></div></div>
+<div class="touch" aria-hidden="true"><div class="touch-stick"><i></i></div><div class="touch-actions"><button class="touch-btn" data-touch="left">◀</button><button class="touch-btn" data-touch="right">▶</button><button class="touch-btn" data-touch="jump">PULAR</button><button class="touch-btn" data-touch="sprint">${copy['touch.accelerate']}</button><button class="touch-btn" data-touch="dash">${copy['touch.nitro']}</button></div></div>
 `
   }
 }
