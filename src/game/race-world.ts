@@ -4,6 +4,8 @@ import { Sky } from './visuals/sky'
 import { Rain } from './visuals/rain'
 import { buildEnvironment } from './visuals/environment'
 import { MOODS, cityLook } from './city-looks'
+import { streetOf, waterSide, type StreetId } from './city-streets'
+import { cobbleTexture, rippleTexture } from './visuals/street-textures'
 import { LANDMARK_SCALE, buildLandmark, disposeLandmarkGeometry, landmarkMaterials } from './landmarks'
 import { SCENARIOS, scenarioById, type Scenario, type ScenarioId } from './scenarios'
 import { asphaltTextures, facadeStyle, gantrySignTexture, glowTexture, neonTexture, pavementTexture, shopfrontTexture, seeded, streakTexture, type FacadeStyle } from './visuals/textures'
@@ -55,6 +57,12 @@ export class RaceWorld {
   private readonly landmarks = new THREE.Group()
   private landmarkProps: MovingProp[] = []
   private cityId = ''
+  private readonly street = new THREE.Group()
+  private streetFields: Array<(scroll: number) => void> = []
+  private streetProps: MovingProp[] = []
+  private hiddenSide = 0
+  private cobbleTex: THREE.CanvasTexture | null = null
+  private rippleTex: THREE.CanvasTexture | null = null
   private skylineGroup: THREE.Group | null = null
   private fogTint: { color: THREE.Color; weight: number } | null = null
   private clock = 0
@@ -95,6 +103,7 @@ export class RaceWorld {
     this.addDeserto()
     this.scene.add(this.rain.mesh)
     this.scene.add(this.landmarks)
+    this.scene.add(this.street)
     this.setScenario('cidade')
   }
 
@@ -148,6 +157,7 @@ export class RaceWorld {
       if (mood.ground) this.groundMat.color.lerp(new THREE.Color(mood.ground), weight)
     }
     this.buildLandmarks(look.marks)
+    this.buildStreet(streetOf(cityId))
     return base
   }
 
@@ -197,6 +207,160 @@ export class RaceWorld {
     }
   }
 
+  private clearStreet(): void {
+    this.street.traverse(node => {
+      const mesh = node as THREE.Mesh
+      if (mesh.isMesh) { mesh.geometry.dispose(); (mesh.material as THREE.Material).dispose() }
+    })
+    this.street.clear()
+    this.streetFields = []
+    for (const prop of this.streetProps) { const at = this.props.indexOf(prop); if (at >= 0) this.props.splice(at, 1) }
+    this.streetProps = []
+    if (this.hiddenSide) for (const prop of this.props) if (prop.root.userData.building) prop.root.visible = true
+    this.hiddenSide = 0
+  }
+
+  /** Faixa plana ao longo da pista (água, areia, neve, pedra); a textura corre com a velocidade. */
+  private strip(x0: number, x1: number, y: number, mat: THREE.Material): THREE.Mesh {
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(Math.abs(x1 - x0), 1500), mat)
+    mesh.rotation.x = -Math.PI / 2
+    mesh.position.set((x0 + x1) / 2, y, -620)
+    this.street.add(mesh)
+    return mesh
+  }
+
+  private scrolling(tex: THREE.Texture, width: number, tile: number, speedFactor = 1): void {
+    tex.repeat.set(width / tile, 1500 / tile)
+    this.streetFields.push(scroll => { tex.offset.y = (scroll * speedFactor) / tile })
+  }
+
+  /** Objeto que passa pela lateral da pista e volta ao fim do trecho. */
+  private streetProp(root: THREE.Object3D, z: number, period: number): void {
+    root.userData.street = true
+    this.street.add(root)
+    const prop = { root, homeZ: z, wrapAt: 60, wrapBy: period }
+    root.position.z = z
+    this.props.push(prop)
+    this.streetProps.push(prop)
+  }
+
+  /** Cada cidade com identidade própria na rua: canais, orla, neve ou paralelepípedo. */
+  private buildStreet(kind: StreetId | null): void {
+    this.clearStreet()
+    if (!kind) return
+    const ripple = (this.rippleTex ??= rippleTexture())
+    const curbX = ROAD_HALF + 0.3
+    const edgeX = curbX + SIDEWALK_W
+    if (kind === 'cobble') {
+      const tex = (this.cobbleTex ??= cobbleTexture())
+      const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0.02, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+      this.strip(-ROAD_HALF, ROAD_HALF, -0.05, mat)
+      this.scrolling(tex, ROAD_HALF * 2, 4)
+      return
+    }
+    if (kind === 'canal') {
+      const mat = new THREE.MeshStandardMaterial({ color: '#12607f', emissive: '#0a4560', emissiveIntensity: 1.5, roughness: 0.18, metalness: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+      const glint = new THREE.MeshBasicMaterial({ map: ripple, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })
+      const rip = ripple.clone()
+      rip.needsUpdate = true
+      glint.map = rip
+      this.scrolling(rip, SIDEWALK_W + 1, 10, 0.9)
+      const poleMat = new THREE.MeshStandardMaterial({ color: '#7a5a3a', roughness: 0.8 })
+      const stripeMat = new THREE.MeshStandardMaterial({ color: '#d9d2c3', roughness: 0.7 })
+      const lampMat = new THREE.MeshBasicMaterial({ color: '#ffd59a' })
+      const hull = new THREE.MeshStandardMaterial({ color: '#16191d', roughness: 0.5, metalness: 0.2 })
+      const trim = new THREE.MeshStandardMaterial({ color: '#c8a05a', roughness: 0.4, metalness: 0.4 })
+      for (const side of [-1, 1]) {
+        this.strip(side * curbX, side * (edgeX + 1.0), 0.15, mat)
+        this.strip(side * curbX, side * (edgeX + 1.0), 0.16, glint)
+        for (let i = 0; i < 36; i += 1) {
+          const pole = new THREE.Group()
+          const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.17, 2.6, 7), poleMat)
+          body.position.y = 1.0
+          const band = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.4, 7), stripeMat)
+          band.position.y = 1.6
+          const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), lampMat)
+          lamp.position.y = 2.4
+          pole.add(body, band, lamp)
+          pole.position.x = side * (curbX + 1.7)
+          this.streetProp(pole, 60 - i * 16, 576)
+        }
+        for (let i = 0; i < 8; i += 1) {
+          const boat = new THREE.Group()
+          const shell = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 4.6), hull)
+          shell.position.y = 0.2
+          const prow = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.1, 0.16), trim)
+          prow.position.set(0, 0.9, -2.2)
+          prow.rotation.x = 0.35
+          boat.add(shell, prow)
+          boat.position.x = side * (curbX + 2.9 + ((i * 7) % 3) * 0.2)
+          this.streetProp(boat, 40 - i * 70 - (side > 0 ? 0 : 33), 560)
+        }
+      }
+      return
+    }
+    if (kind === 'snow') {
+      const mat = new THREE.MeshStandardMaterial({ color: '#cdd9e8', emissive: '#1a2636', emissiveIntensity: 0.8, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+      const bank = new THREE.MeshStandardMaterial({ color: '#dbe5f0', emissive: '#223046', emissiveIntensity: 0.8, roughness: 0.95 })
+      for (const side of [-1, 1]) {
+        this.strip(side * curbX, side * (edgeX + 24), 0.17, mat)
+        for (let i = 0; i < 48; i += 1) {
+          const mound = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), bank)
+          mound.scale.set(0.9 + (i % 3) * 0.3, 0.5 + (i % 4) * 0.12, 3.2 + (i % 5) * 0.8)
+          mound.position.set(side * (ROAD_HALF + 0.9 + (i % 2) * 0.35), 0.1, 0)
+          this.streetProp(mound, 60 - i * 12, 576)
+        }
+      }
+      // lama de neve derretida na borda da pista
+      const slushTex = ripple.clone()
+      slushTex.needsUpdate = true
+      const slush = new THREE.MeshBasicMaterial({ color: '#aab6c4', transparent: true, opacity: 0.35, depthWrite: false })
+      this.strip(-ROAD_HALF, -ROAD_HALF + 1.1, -0.04, slush)
+      this.strip(ROAD_HALF - 1.1, ROAD_HALF, -0.04, slush)
+      return
+    }
+    // beach: calçadão + areia + mar de um lado; do outro, a cidade de sempre
+    const side = waterSide(this.cityId)
+    this.hiddenSide = side
+    for (const prop of this.props) if (prop.root.userData.building && prop.root.userData.building.side === side) prop.root.visible = false
+    const sandMat = new THREE.MeshStandardMaterial({ color: '#8a7757', emissive: '#2a2113', emissiveIntensity: 0.8, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+    const seaMat = new THREE.MeshStandardMaterial({ color: '#0f5272', emissive: '#08405e', emissiveIntensity: 1.5, roughness: 0.2, metalness: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+    const sandEnd = edgeX + 18
+    this.strip(side * edgeX, side * sandEnd, 0.0, sandMat)
+    this.strip(side * sandEnd, side * (sandEnd + 220), -0.12, seaMat)
+    const rip = ripple.clone()
+    rip.needsUpdate = true
+    const waves = new THREE.MeshBasicMaterial({ map: rip, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
+    this.scrolling(rip, 220, 14, 0.7)
+    this.strip(side * sandEnd, side * (sandEnd + 220), -0.1, waves)
+    const foamTex = ripple.clone()
+    foamTex.needsUpdate = true
+    const foam = new THREE.MeshBasicMaterial({ map: foamTex, color: '#ffffff', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })
+    this.scrolling(foamTex, 3, 6, 1.2)
+    this.strip(side * (sandEnd - 1), side * (sandEnd + 2), 0.02, foam)
+    // palmeiras na beira do calçadão
+    const trunkMat = new THREE.MeshStandardMaterial({ color: '#5a4630', roughness: 0.9 })
+    const frondMat = new THREE.MeshStandardMaterial({ color: '#1f5a30', emissive: '#08200f', emissiveIntensity: 0.9, roughness: 0.8, side: THREE.DoubleSide })
+    for (let i = 0; i < 26; i += 1) {
+      const palm = new THREE.Group()
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.24, 6.4, 6), trunkMat)
+      trunk.position.y = 3.2
+      trunk.rotation.z = (i % 2 ? 1 : -1) * 0.08
+      palm.add(trunk)
+      for (let f = 0; f < 7; f += 1) {
+        const frond = new THREE.Mesh(new THREE.ConeGeometry(0.55, 3.4, 4), frondMat)
+        frond.scale.z = 0.25
+        const ang = (f / 7) * Math.PI * 2
+        frond.position.set(Math.cos(ang) * 1.4, 6.5, Math.sin(ang) * 1.4)
+        frond.rotation.set(Math.sin(ang) * 1.15, 0, -Math.cos(ang) * 1.15)
+        palm.add(frond)
+      }
+      palm.position.x = side * (edgeX - 0.8)
+      palm.rotation.y = i * 1.7
+      this.streetProp(palm, 60 - i * 24 - (i % 3) * 3, 624)
+    }
+  }
+
   get currentCity(): string {
     return this.cityId
   }
@@ -216,16 +380,17 @@ export class RaceWorld {
       if (prop.root.position.z > prop.wrapAt) prop.root.position.z -= prop.wrapBy
     }
     for (const apply of this.fields) apply(this.scroll)
+    for (const apply of this.streetFields) apply(this.scroll)
     this.openViewCorridors()
   }
 
   /** Enquanto um monumento se aproxima, os prédios entre o carro e ele (do mesmo lado) somem para ele aparecer. */
   private openViewCorridors(): void {
-    if (!this.landmarkProps.length) return
+    if (!this.landmarkProps.length && !this.hiddenSide) return
     for (const prop of this.props) {
       const info = prop.root.userData.building as { side: number } | undefined
       if (!info) continue
-      let blocked = false
+      let blocked = info.side === this.hiddenSide
       for (const lm of this.landmarkProps) {
         if (lm.root.userData.side !== info.side) continue
         const lz = lm.root.position.z
@@ -478,7 +643,7 @@ export class RaceWorld {
         head.position.set(-side * 2.55, 7.08, 0)
         root.add(head)
         const lampX = -side * 2.55
-        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#ffc27a', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
+        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#ffc27a', transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
         halo.scale.setScalar(4.2)
         halo.position.set(lampX, 7.0, 0)
         root.add(halo)
