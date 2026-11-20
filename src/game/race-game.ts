@@ -65,6 +65,8 @@ export class RaceGame {
   private lives: number = RACE_CONFIG.startingLives
   private nearMisses = 0
   private power: PowerId | null = null
+  private bonusDistance = 0
+  private bonusNearMisses = 0
   private powerTimer = 0
   private powerTotal = 1
   private powerLevels: PowerLevels = defaultPowerLevels()
@@ -229,6 +231,8 @@ export class RaceGame {
     this.elapsed = 0
     this.lives = RACE_CONFIG.startingLives
     this.nearMisses = 0
+    this.bonusDistance = 0
+    this.bonusNearMisses = 0
     this.carsJumped = 0
     this.hits = 0
     this.clearPowers()
@@ -316,6 +320,8 @@ export class RaceGame {
     // Poderes: o orbe vale por alguns segundos; as asas mantêm o carro no alto.
     this.powerTimer = Math.max(0, this.powerTimer - dt)
     if (this.power && this.powerTimer <= 0) this.endPower()
+    // Nitro infinito: o turbo fica sempre aceso e a recarga não corre
+    if (this.power === 'turbo') { this.boostTimer = Math.max(this.boostTimer, 0.25); this.boostCooldown = 0 }
     const flying = this.power === 'wings'
     this.flyY = THREE.MathUtils.damp(this.flyY, flying ? 3.5 + Math.sin(this.elapsed * 3) * 0.18 : 0, flying ? 3 : 4.5, dt)
     this.altitude = Math.max(this.jumpY, this.flyY)
@@ -351,6 +357,7 @@ export class RaceGame {
 
     const movement = this.speed * dt
     this.distance += movement
+    if (this.power === 'cash') this.bonusDistance += movement
     this.world.update(movement, dt)
     this.updateTraffic(movement)
     this.spawnTimer -= dt
@@ -595,8 +602,8 @@ export class RaceGame {
       if (!car.tagged && car.root.position.z > RACE_CONFIG.playerZ + 3.2) {
         car.tagged = true
         const pan = THREE.MathUtils.clamp((trafficX - this.x) / 5, -1, 1)
-        if (car.jumped) { this.nearMisses += 2; this.carsJumped += 1; this.sound.passBy(pan) }
-        else if (Math.abs(this.x - trafficX) >= (car.width + 1.12) * 0.5 && Math.abs(this.x - trafficX) < 4.15) { this.nearMisses += 1; this.sound.passBy(pan) }
+        if (car.jumped) { this.nearMisses += 2; if (this.power === 'cash') this.bonusNearMisses += 2; this.carsJumped += 1; this.sound.passBy(pan) }
+        else if (Math.abs(this.x - trafficX) >= (car.width + 1.12) * 0.5 && Math.abs(this.x - trafficX) < 4.15) { this.nearMisses += 1; if (this.power === 'cash') this.bonusNearMisses += 1; this.sound.passBy(pan) }
       }
       if (car.root.position.z > RACE_CONFIG.playerZ + 15) {
         car.active = false
@@ -629,7 +636,7 @@ export class RaceGame {
       const color = POWERS[id].color
       const group = new THREE.Group()
       const core = new THREE.Mesh(
-        id === 'clear' ? new THREE.SphereGeometry(0.42, 18, 12) : id === 'wings' ? new THREE.ConeGeometry(0.45, 0.9, 4) : new THREE.IcosahedronGeometry(0.45, 0),
+        id === 'clear' ? new THREE.SphereGeometry(0.42, 18, 12) : id === 'wings' ? new THREE.ConeGeometry(0.45, 0.9, 4) : id === 'turbo' ? new THREE.OctahedronGeometry(0.5, 0) : id === 'cash' ? new THREE.CylinderGeometry(0.42, 0.42, 0.14, 20) : new THREE.IcosahedronGeometry(0.45, 0),
         new THREE.MeshBasicMaterial({ color, toneMapped: false, fog: false }),
       )
       const ring = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.055, 8, 28), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, toneMapped: false, fog: false }))
@@ -654,6 +661,11 @@ export class RaceGame {
       this.wings.children.forEach((wing, i) => { wing.rotation.z = (i === 0 ? -1 : 1) * (0.18 + flap) })
     }
     void dt
+  }
+
+  /** Distância e quase-batidas feitas com "Créditos em dobro" ativo (pagas uma segunda vez). */
+  get bonus(): { distance: number; nearMisses: number } {
+    return { distance: this.bonusDistance, nearMisses: this.bonusNearMisses }
   }
 
   /** Som de comemoração (contrato entregue). */
@@ -685,7 +697,8 @@ export class RaceGame {
   }
 
   private endPower(): void {
-    if (this.power === 'wings' || this.power === 'ghost') this.invulnerable = Math.max(this.invulnerable, 1.1)
+    if (this.power === 'wings' || this.power === 'ghost' || this.power === 'turbo') this.invulnerable = Math.max(this.invulnerable, 1.1)
+    if (this.power === 'turbo') this.boostCooldown = RACE_CONFIG.boostCooldown * 0.6
     this.power = null
     this.sound.powerEnd()
   }

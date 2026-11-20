@@ -1,5 +1,5 @@
 /** Poderes encontrados na estrada: orbes coloridos que o jogador pega por alguns segundos de vantagem. */
-export type PowerId = 'clear' | 'wings' | 'ghost'
+export type PowerId = 'clear' | 'wings' | 'ghost' | 'turbo' | 'cash'
 
 export type PowerInfo = { id: PowerId; label: string; blurb: string; seconds: number; color: string }
 
@@ -7,9 +7,11 @@ export const POWERS: Record<PowerId, PowerInfo> = {
   clear: { id: 'clear', label: 'RUA LIVRE', blurb: 'Poucos carros na pista', seconds: 9, color: '#4fe39a' },
   wings: { id: 'wings', label: 'ASAS', blurb: 'Você voa por cima do trânsito', seconds: 7, color: '#6cc8ff' },
   ghost: { id: 'ghost', label: 'FANTASMA', blurb: 'Os carros atravessam você', seconds: 6, color: '#c9a0ff' },
+  turbo: { id: 'turbo', label: 'NITRO INFINITO', blurb: 'Nitro sem parar', seconds: 5, color: '#ff8a3d' },
+  cash: { id: 'cash', label: 'CRÉDITOS EM DOBRO', blurb: 'Tudo que você ganha vale o dobro', seconds: 10, color: '#ffd24a' },
 }
 
-export const POWER_IDS: PowerId[] = ['clear', 'wings', 'ghost']
+export const POWER_IDS: PowerId[] = ['clear', 'wings', 'ghost', 'turbo', 'cash']
 
 /** Distância (m) até o primeiro orbe e entre os seguintes — por distância, não por tempo, pois a velocidade não tem teto. */
 export const FIRST_PICKUP_DISTANCE = 450
@@ -28,11 +30,11 @@ export const powerFraction = (id: PowerId, remainingSeconds: number, total: numb
 // ---------- evolução (comprada com créditos) ----------
 export const MAX_POWER_LEVEL = 8
 export type PowerLevels = Record<PowerId, number>
-export const defaultPowerLevels = (): PowerLevels => ({ clear: 0, wings: 0, ghost: 0 })
+export const defaultPowerLevels = (): PowerLevels => ({ clear: 0, wings: 0, ghost: 0, turbo: 0, cash: 0 })
 
 /** Segundos extras por nível e fator de preço de cada poder. */
-const STEP: Record<PowerId, number> = { clear: 1.5, wings: 1.2, ghost: 1 }
-const PRICE_FACTOR: Record<PowerId, number> = { clear: 1, wings: 1.2, ghost: 1.4 }
+const STEP: Record<PowerId, number> = { clear: 1.5, wings: 1.2, ghost: 1, turbo: 0.8, cash: 1.8 }
+const PRICE_FACTOR: Record<PowerId, number> = { clear: 1, wings: 1.2, ghost: 1.4, turbo: 1.6, cash: 1.3 }
 
 const clampLevel = (level: number): number => (Number.isFinite(level) ? Math.min(MAX_POWER_LEVEL, Math.max(0, Math.floor(level))) : 0)
 
@@ -48,7 +50,7 @@ export function upgradeCost(id: PowerId, level: number): number | null {
 
 export function parsePowerLevels(raw: unknown): PowerLevels {
   const data = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-  return { clear: clampLevel(Number(data.clear)), wings: clampLevel(Number(data.wings)), ghost: clampLevel(Number(data.ghost)) }
+  return { clear: clampLevel(Number(data.clear)), wings: clampLevel(Number(data.wings)), ghost: clampLevel(Number(data.ghost)), turbo: clampLevel(Number(data.turbo)), cash: clampLevel(Number(data.cash)) }
 }
 
 export type PowerPurchase =

@@ -258,7 +258,9 @@ async function boot(): Promise<void> {
     }
   }
   function bankProgress(distance: number, nearMisses: number): number {
-    const earned = Math.floor(calculateRacePayout(distance, nearMisses).credits * cityMultiplier(game?.city ?? 'cidade').credits)
+    const extra = game?.bonus ?? { distance: 0, nearMisses: 0 }
+    const base = calculateRacePayout(distance, nearMisses).credits + calculateRacePayout(extra.distance, extra.nearMisses).credits
+    const earned = Math.floor(base * cityMultiplier(game?.city ?? 'cidade').credits)
     const credits = Math.max(0, earned - bankedCredits)
     const meters = Math.max(0, distance - bankedDistance)
     if (credits > 0 || meters > 0) {
