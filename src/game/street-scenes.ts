@@ -16,18 +16,18 @@ export type StreetCtx = {
   sidewalk: number
 }
 
-const std = (color: string, emissive = '#000000', extra: THREE.MeshStandardMaterialParameters = {}) =>
+export const std = (color: string, emissive = '#000000', extra: THREE.MeshStandardMaterialParameters = {}) =>
   new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: 1, roughness: 0.9, flatShading: true, ...extra })
-const basic = (color: string) => new THREE.MeshBasicMaterial({ color })
-const mesh = (geo: THREE.BufferGeometry, mat: THREE.Material, x = 0, y = 0, z = 0) => {
+export const basic = (color: string) => new THREE.MeshBasicMaterial({ color })
+export const mesh = (geo: THREE.BufferGeometry, mat: THREE.Material, x = 0, y = 0, z = 0) => {
   const m = new THREE.Mesh(geo, mat)
   m.position.set(x, y, z)
   return m
 }
-const glowPlane = (ctx: StreetCtx, color: string, w: number, h: number, opacity: number) =>
+export const glowPlane = (ctx: StreetCtx, color: string, w: number, h: number, opacity: number) =>
   new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: ctx.glow, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false }))
 
-function rng(seed: string): () => number {
+export function rng(seed: string): () => number {
   let h = 2166136261
   for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619)
   return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296 }

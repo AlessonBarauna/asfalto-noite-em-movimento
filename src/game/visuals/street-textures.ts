@@ -59,3 +59,21 @@ export function rippleTexture(): THREE.CanvasTexture {
     }
   })
 }
+
+/** Calçadão de ondas pretas e brancas (Copacabana). */
+export function waveTexture(): THREE.CanvasTexture {
+  return make(256, g => {
+    g.fillStyle = '#e9e6df'
+    g.fillRect(0, 0, 256, 256)
+    g.fillStyle = '#1d1d1f'
+    for (let row = 0; row < 4; row += 1) {
+      g.beginPath()
+      const y0 = row * 64
+      g.moveTo(0, y0 + 32)
+      for (let x = 0; x <= 256; x += 8) g.lineTo(x, y0 + 32 + Math.sin((x / 256) * Math.PI * 4 + row * 0.8) * 20)
+      for (let x = 256; x >= 0; x -= 8) g.lineTo(x, y0 + 50 + Math.sin((x / 256) * Math.PI * 4 + row * 0.8) * 20)
+      g.closePath()
+      g.fill()
+    }
+  })
+}

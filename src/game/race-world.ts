@@ -5,6 +5,7 @@ import { Rain } from './visuals/rain'
 import { buildEnvironment } from './visuals/environment'
 import { MOODS, cityLook } from './city-looks'
 import { streetOf, waterSide, type StreetId } from './city-streets'
+import { CITY_FLAVORS } from './city-flavors'
 import { boulevard, dunes, elevated, hillside, lanterns, tropical, type StreetCtx } from './street-scenes'
 import { cobbleTexture, rippleTexture } from './visuals/street-textures'
 import { LANDMARK_SCALE, buildLandmark, disposeLandmarkGeometry, landmarkMaterials } from './landmarks'
@@ -58,6 +59,7 @@ export class RaceWorld {
   private readonly landmarks = new THREE.Group()
   private landmarkProps: MovingProp[] = []
   private cityId = ''
+  private cactusMeshes: THREE.InstancedMesh[] = []
   private readonly street = new THREE.Group()
   private streetFields: Array<(scroll: number) => void> = []
   private streetProps: MovingProp[] = []
@@ -159,6 +161,8 @@ export class RaceWorld {
     }
     this.buildLandmarks(look.marks)
     this.buildStreet(streetOf(cityId))
+    // cactos só combinam com os desertos das Américas
+    for (const mesh of this.cactusMeshes) mesh.visible = cityId === 'las-vegas'
     return base
   }
 
@@ -245,32 +249,42 @@ export class RaceWorld {
     this.streetProps.push(prop)
   }
 
-  /** Cada cidade com identidade própria na rua: canais, orla, neve ou paralelepípedo. */
   private buildStreet(kind: StreetId | null): void {
     this.clearStreet()
     if (!kind) return
+    this.buildBase(kind)
+    const ctx = this.streetCtx()
+    for (const flavor of CITY_FLAVORS[this.cityId] ?? []) flavor(ctx)
+  }
+
+  private streetCtx(curbX = ROAD_HALF + 0.3, edgeX = ROAD_HALF + 0.3 + SIDEWALK_W): StreetCtx {
+    return {
+      group: this.street,
+      strip: (x0, x1, y, mat) => this.strip(x0, x1, y, mat),
+      prop: (root, z, period) => this.streetProp(root, z, period),
+      tick: fn => this.streetFields.push(fn),
+      hideSide: side => {
+        this.hiddenSide = side
+        for (const prop of this.props) if (prop.root.userData.building && prop.root.userData.building.side === side) prop.root.visible = false
+      },
+      glow: this.glow,
+      cityId: this.cityId,
+      curbX,
+      edgeX,
+      roadHalf: ROAD_HALF,
+      sidewalk: SIDEWALK_W,
+    }
+  }
+
+  /** Cada cidade com identidade própria na rua: canais, orla, neve ou paralelepípedo. */
+  private buildBase(kind: StreetId): void {
     const ripple = (this.rippleTex ??= rippleTexture())
     const curbX = ROAD_HALF + 0.3
     const edgeX = curbX + SIDEWALK_W
     const scenes: Partial<Record<StreetId, (ctx: StreetCtx) => void>> = { boulevard, hillside, tropical, dunes, lanterns, elevated }
     const scene = scenes[kind]
     if (scene) {
-      scene({
-        group: this.street,
-        strip: (x0, x1, y, mat) => this.strip(x0, x1, y, mat),
-        prop: (root, z, period) => this.streetProp(root, z, period),
-        tick: fn => this.streetFields.push(fn),
-        hideSide: side => {
-          this.hiddenSide = side
-          for (const prop of this.props) if (prop.root.userData.building && prop.root.userData.building.side === side) prop.root.visible = false
-        },
-        glow: this.glow,
-        cityId: this.cityId,
-        curbX,
-        edgeX,
-        roadHalf: ROAD_HALF,
-        sidewalk: SIDEWALK_W,
-      })
+      scene(this.streetCtx(curbX, edgeX))
       return
     }
     if (kind === 'cobble') {
@@ -773,7 +787,7 @@ export class RaceWorld {
    * Scrolling scenery made of instanced parts (trees, rocks...). Each item carries x, z, scale and yaw;
    * parts are stacked on that transform. Everything wraps behind the camera like the other props.
    */
-  private addField(parts: Array<{ geo: THREE.BufferGeometry; mat: THREE.Material; y: number; shadow?: boolean }>, items: Array<{ x: number; z: number; s: number; r: number }>, span: number): void {
+  private addField(parts: Array<{ geo: THREE.BufferGeometry; mat: THREE.Material; y: number; shadow?: boolean }>, items: Array<{ x: number; z: number; s: number; r: number }>, span: number): THREE.InstancedMesh[] {
     const near = 40
     const meshes = parts.map(part => {
       const mesh = new THREE.InstancedMesh(part.geo, part.mat, items.length)
@@ -797,6 +811,7 @@ export class RaceWorld {
       for (const mesh of meshes) mesh.instanceMatrix.needsUpdate = true
     })
     this.fields[this.fields.length - 1](0)
+    return meshes
   }
 
   private scatter(random: () => number, count: number, spanZ: number, minX: number, maxX: number, minS: number, maxS: number): Array<{ x: number; z: number; s: number; r: number }> {
@@ -854,7 +869,7 @@ export class RaceWorld {
     this.addField([{ geo: new THREE.DodecahedronGeometry(1, 0), mat: rock, y: 0.45, shadow: true }], this.scatter(random, 90, span, ROAD_HALF + 3, ROAD_HALF + 38, 0.6, 2.4), span)
     this.addField([{ geo: new THREE.DodecahedronGeometry(1, 0), mat: rockDark, y: 1.2, shadow: true }], this.scatter(random, 28, span, ROAD_HALF + 20, ROAD_HALF + 90, 3, 8), span)
     // saguaro: trunk plus two upturned arms
-    this.addField([
+    this.cactusMeshes = this.addField([
       { geo: new THREE.CapsuleGeometry(0.28, 3.2, 4, 8), mat: cactus, y: 1.9, shadow: true },
       { geo: new THREE.CapsuleGeometry(0.17, 1.1, 4, 6), mat: cactus, y: 2.7 },
     ], this.scatter(random, 80, span, ROAD_HALF + 3.5, ROAD_HALF + 26, 0.8, 1.5), span)
