@@ -5,6 +5,7 @@ import { Rain } from './visuals/rain'
 import { buildEnvironment } from './visuals/environment'
 import { MOODS, cityLook } from './city-looks'
 import { streetOf, waterSide, type StreetId } from './city-streets'
+import { boulevard, dunes, elevated, hillside, lanterns, tropical, type StreetCtx } from './street-scenes'
 import { cobbleTexture, rippleTexture } from './visuals/street-textures'
 import { LANDMARK_SCALE, buildLandmark, disposeLandmarkGeometry, landmarkMaterials } from './landmarks'
 import { SCENARIOS, scenarioById, type Scenario, type ScenarioId } from './scenarios'
@@ -251,6 +252,27 @@ export class RaceWorld {
     const ripple = (this.rippleTex ??= rippleTexture())
     const curbX = ROAD_HALF + 0.3
     const edgeX = curbX + SIDEWALK_W
+    const scenes: Partial<Record<StreetId, (ctx: StreetCtx) => void>> = { boulevard, hillside, tropical, dunes, lanterns, elevated }
+    const scene = scenes[kind]
+    if (scene) {
+      scene({
+        group: this.street,
+        strip: (x0, x1, y, mat) => this.strip(x0, x1, y, mat),
+        prop: (root, z, period) => this.streetProp(root, z, period),
+        tick: fn => this.streetFields.push(fn),
+        hideSide: side => {
+          this.hiddenSide = side
+          for (const prop of this.props) if (prop.root.userData.building && prop.root.userData.building.side === side) prop.root.visible = false
+        },
+        glow: this.glow,
+        cityId: this.cityId,
+        curbX,
+        edgeX,
+        roadHalf: ROAD_HALF,
+        sidewalk: SIDEWALK_W,
+      })
+      return
+    }
     if (kind === 'cobble') {
       const tex = (this.cobbleTex ??= cobbleTexture())
       const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0.02, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
@@ -418,6 +440,7 @@ export class RaceWorld {
     this.markers.forEach((marker, index) => { marker.position.z = -14 - (index % 34) * 12 })
     for (const prop of this.props) prop.root.position.z = prop.homeZ
     for (const apply of this.fields) apply(0)
+    for (const apply of this.streetFields) apply(0)
   }
 
   setRain(on: boolean): void {

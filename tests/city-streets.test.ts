@@ -10,12 +10,18 @@ describe('ruas por cidade', () => {
       expect(CITY_LOOKS[id], id).toBeTruthy()
     }
   })
+  it('toda cidade do mapa tem uma rua própria', () => {
+    const semRua = Object.keys(CITY_LOOKS).filter(id => !streetOf(id))
+    expect(semRua).toEqual([])
+  })
   it('as cidades-ícone têm a rua certa', () => {
     expect(streetOf('veneza')).toBe('canal')
     expect(streetOf('rio-de-janeiro')).toBe('beach')
     expect(streetOf('oslo')).toBe('snow')
     expect(streetOf('praga')).toBe('cobble')
-    expect(streetOf('sao-paulo')).toBeNull()
+    expect(streetOf('sao-paulo')).toBe('elevated')
+    expect(streetOf('toquio')).toBe('lanterns')
+    expect(streetOf('cairo')).toBe('dunes')
   })
   it('o lado do mar é estável por cidade', () => {
     expect(waterSide('rio-de-janeiro')).toBe(waterSide('rio-de-janeiro'))
