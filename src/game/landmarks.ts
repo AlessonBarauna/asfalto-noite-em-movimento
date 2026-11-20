@@ -294,6 +294,30 @@ function mountain(m: LandmarkMats, kind: 'sugar' | 'table' | 'volcano' | 'alps' 
   } else {
     for (const [x, s] of [[-40, 0.8], [0, 1.1], [44, 0.9]] as const) cone(add, 38 * s, 60 * s, m.rock, x, 0, 0, 7)
   }
+  if (kind === 'sugar') {
+    // bondinho: cabo, estação acesa no topo e cabine vermelha
+    const cable = new THREE.Mesh(track(new THREE.CylinderGeometry(0.15, 0.15, 56, 4)), m.metal)
+    cable.position.set(-26, 52, -3)
+    cable.rotation.z = Math.PI / 2 - 0.1
+    group.add(cable)
+    box(add, 5, 3, 4, m.white, 0, 54, 0)
+    add(new THREE.BoxGeometry(2.4, 1.2, 0.3), m.lamp, 0, 55.4, 2.1)
+    box(add, 3, 2.4, 2.4, m.red, -24, 50, -3)
+  } else if (kind === 'volcano') {
+    // cratera incandescente no cume
+    cyl(add, 7, 7, 1, m.lamp, 0, 80.5, 0, 9)
+    for (let i = 0; i < 4; i += 1) { const a2 = (i / 4) * Math.PI * 2 + 0.4; box(add, 1.4, 22, 1.4, m.red, Math.cos(a2) * 9, 56, Math.sin(a2) * 9).rotation.z = 0.15 }
+  } else if (kind === 'table') {
+    // luzes da cidade aos pés e estação do teleférico
+    for (let i = 0; i < 10; i += 1) add(new THREE.BoxGeometry(2, 1.2, 0.3), m.lamp, -46 + i * 10, 3 + (i % 3) * 3, 58)
+    box(add, 5, 3, 4, m.white, 36, 57, 0)
+  }
+  // mata escura no pé da montanha, para a pedra não parecer um cone solto
+  for (let i = 0; i < 18; i += 1) {
+    const a2 = (i / 18) * Math.PI * 2
+    const rad = (kind === 'table' ? 66 : kind === 'volcano' ? 52 : kind === 'sugar' ? 38 : 44) * (0.85 + (i % 3) * 0.08)
+    cone(add, 3.4 + (i % 3), 9 + (i % 4) * 2, m.leaf, Math.cos(a2) * rad, 0, Math.sin(a2) * rad * 0.8, 6)
+  }
   return done(group, 70)
 }
 
@@ -309,12 +333,25 @@ function triomphe(m: LandmarkMats): Piece {
   return done(group, 20)
 }
 
-function arch(_m: LandmarkMats, w: number, h: number, depth: number, mat: THREE.Material, columns = 0): Piece {
+function arch(m: LandmarkMats, w: number, h: number, depth: number, mat: THREE.Material, columns = 0): Piece {
   const { group, add } = kit()
   const leg = (w - Math.min(w * 0.45, 14)) / 2
   for (const s of [-1, 1]) box(add, leg, h, depth, mat, s * (w - leg) / 2, 0, 0)
   box(add, w, h * 0.22, depth, mat, 0, h * 0.78, 0)
-  if (columns) for (let i = 0; i < columns; i += 1) cyl(add, 1, 1, h * 0.62, mat, -w * 0.4 + (i * w * 0.8) / (columns - 1), 0, depth * 0.5 + 1, 8)
+  add(new THREE.BoxGeometry(Math.min(w * 0.45, 14) - 1, h * 0.7, 0.3), m.stoneDark, 0, h * 0.35, depth / 2 + 0.05)
+  add(new THREE.BoxGeometry(Math.min(w * 0.45, 14) - 1, 0.7, 0.35), m.lamp, 0, h * 0.7, depth / 2 + 0.06)
+  if (columns) {
+    for (let i = 0; i < columns; i += 1) cyl(add, 1, 1, h * 0.62, mat, -w * 0.4 + (i * w * 0.8) / (columns - 1), 0, depth * 0.5 + 1, 8)
+    // cornija, frontão e quadriga (carruagem com quatro cavalos) no topo
+    box(add, w + 2, 1.4, depth + 3, m.stone, 0, h)
+    prism(add, w * 0.5, h * 0.12, 1.2, mat, 0, h + 1.4, depth * 0.5)
+    box(add, 12, 2.2, 5, m.stoneDark, 0, h + 1.4)
+    for (let i = 0; i < 4; i += 1) { box(add, 1.1, 3.2, 3.2, m.gold, -2.6 + i * 1.75, h + 3.6); box(add, 0.8, 2, 0.8, m.gold, -2.6 + i * 1.75, h + 6.8, 1.3) }
+    box(add, 3.4, 3.6, 3.6, m.gold, 0, h + 3.6, -3.4)
+    cyl(add, 0.2, 0.2, 5, m.gold, 0, h + 7.2, -3.4, 4)
+  } else {
+    box(add, w + 1, 1.2, depth + 1, m.stone, 0, h)
+  }
   return done(group, w / 2)
 }
 
@@ -361,15 +398,29 @@ function burj(m: LandmarkMats): Piece {
 
 function pagoda(m: LandmarkMats, tiers = 5, mat: THREE.Material = m.red): Piece {
   const { group, add } = kit()
-  let y = 0
+  box(add, 18, 1.6, 18, m.stone, 0, 0)
+  for (let i = 0; i < 3; i += 1) box(add, 6 - i, 0.5, 1.2, m.stone, 0, i * 0.5, 9.4 + (2 - i) * 0.6)
+  let y = 1.6
   for (let i = 0; i < tiers; i += 1) {
     const s = 1 - i * 0.14
     box(add, 9 * s, 3.4, 9 * s, mat, 0, y)
-    cone(add, 8 * s, 3.2, m.roof, 0, y + 3.4, 0, 4).rotation.y = Math.PI / 4
-    y += 6
+    // janelas acesas nos quatro lados
+    for (const side of [-1, 1]) {
+      add(new THREE.BoxGeometry(1.6 * s, 2, 0.25), m.lamp, 0, y + 1.8, side * (4.5 * s + 0.03))
+      add(new THREE.BoxGeometry(0.25, 2, 1.6 * s), m.lamp, side * (4.5 * s + 0.03), y + 1.8, 0)
+    }
+    box(add, 10.6 * s, 0.35, 10.6 * s, m.stoneDark, 0, y + 3.4)
+    // beiral largo com pontas douradas nos quatro cantos
+    cone(add, 9.4 * s, 3.4, m.roof, 0, y + 3.8, 0, 4).rotation.y = Math.PI / 4
+    for (const [cx, cz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const tip = cone(add, 0.5, 1.8, m.gold, cx * 6.6 * s, y + 3.6, cz * 6.6 * s, 4)
+      tip.rotation.set(cz * 0.6, 0, -cx * 0.6)
+    }
+    y += 6.2
   }
-  cyl(add, 0.15, 0.4, 7, m.gold, 0, y, 0, 6)
-  return done(group, 6)
+  for (let i = 0; i < 6; i += 1) cyl(add, 1 - i * 0.12, 1.1 - i * 0.12, 0.7, m.gold, 0, y + i * 0.9, 0, 8)
+  cone(add, 0.25, 3, m.gold, 0, y + 5.4, 0, 6)
+  return done(group, 10)
 }
 
 function mosque(m: LandmarkMats, minaretH = 52, mat: THREE.Material = m.stone): Piece {
@@ -462,7 +513,7 @@ function colonial(m: LandmarkMats, mat: THREE.Material = m.white, roof: THREE.Ma
 function casario(m: LandmarkMats): Piece {
   const { group, add } = kit()
   const widths = [8, 7, 9, 7.5, 8.5, 7]
-  const heights = [10, 14, 11, 16, 12, 9]
+  const heights = [14, 20, 15, 24, 17, 13]
   let x = -24
   widths.forEach((w, i) => {
     const mat = m.pastel[i % m.pastel.length]
@@ -474,6 +525,15 @@ function casario(m: LandmarkMats): Piece {
     for (let f = 0; f < floors; f += 1) litWindows(add, m, [cx - w * 0.22, cx + w * 0.22], [4 + f * 4], 6.1, 1.3, 2)
     add(new THREE.BoxGeometry(1.6, 3, 0.25), m.stoneDark, cx, 1.6, 6.1)
     x += w
+  })
+  // segunda fileira mais alta, em cima de um morro, como casas de ladeira
+  cone(add, 44, 26, m.rock, 0, 0, -16, 7)
+  widths.forEach((w, i) => {
+    const cx = -24 + widths.slice(0, i).reduce((acc, v) => acc + v, 0) + w / 2
+    const h = heights[(i + 2) % heights.length] * 0.8
+    box(add, w - 0.4, h, 10, m.pastel[(i + 3) % m.pastel.length], cx, 12, -10)
+    prism(add, w, 3, 10.6, i % 2 ? m.roof : m.brick, cx, 12 + h, -10)
+    litWindows(add, m, [cx - w * 0.22, cx + w * 0.22], [16, 21], -4.9, 1.2, 1.8)
   })
   // torre da igreja ao centro, pontuda e acesa
   box(add, 5, 30, 5, m.white, 0, 0, -2)
@@ -515,19 +575,33 @@ function campanile(m: LandmarkMats, h = 60, mat: THREE.Material = m.brick): Piec
 
 function windmill(m: LandmarkMats): Piece {
   const { group, add } = kit()
-  cone(add, 8, 30, m.brick, 0, 0, 0, 8)
+  // base de pedra, torre afunilada de tijolo, galeria, boné branco e porta
+  cyl(add, 9.5, 10.5, 3, m.stoneDark, 0, 0, 0, 10)
+  cyl(add, 5.2, 8.6, 26, m.brick, 0, 3, 0, 10)
+  cyl(add, 6.3, 6.3, 0.6, m.stone, 0, 14, 0, 10)
+  add(new THREE.BoxGeometry(2.6, 4.2, 0.3), m.stoneDark, 0, 5.6, 8.7)
+  for (const y of [11, 19]) add(new THREE.BoxGeometry(1.1, 2, 0.3), m.lamp, 0, y, y === 11 ? 7.4 : 5.7)
+  dome(add, 5.6, m.white, 0, 29, 0)
+  cone(add, 1.2, 3, m.gold, 0, 34.4, 0, 6)
+  // eixo e quatro velas de treliça com tela
   const hub = new THREE.Group()
-  hub.position.set(0, 24, 8)
+  hub.position.set(0, 27, 6.4)
   group.add(hub)
+  const bar = (w: number, h: number, x: number, y: number, mat: THREE.Material, arm: THREE.Group) => {
+    const mesh = new THREE.Mesh(track(new THREE.BoxGeometry(w, h, 0.35)), mat)
+    mesh.position.set(x, y, 0)
+    arm.add(mesh)
+  }
   for (let i = 0; i < 4; i += 1) {
-    const blade = new THREE.Mesh(track(new THREE.BoxGeometry(2.2, 22, 0.4)), m.white)
-    blade.position.y = 11
     const arm = new THREE.Group()
     arm.rotation.z = (i * Math.PI) / 2 + 0.4
-    arm.add(blade)
+    bar(0.9, 26, 0, 13, m.stoneDark, arm)
+    for (let r = 0; r < 6; r += 1) bar(4.4, 0.35, 2.4, 6 + r * 3.4, m.stoneDark, arm)
+    bar(4.4, 16, 2.4, 15, m.white, arm)
     hub.add(arm)
   }
-  return done(group, 24)
+  ball(add, 1.6, m.gold, 0, 27, 7)
+  return done(group, 26)
 }
 
 function palmResort(m: LandmarkMats): Piece {
@@ -749,7 +823,20 @@ function chicago(m: LandmarkMats): Piece {
 }
 
 function gateIndia(m: LandmarkMats): Piece {
-  return arch(m, 26, 40, 8, m.sand)
+  const { group, add } = kit()
+  const w = 26, h = 40, d = 8
+  box(add, w, 4, d + 4, m.stone, 0, 0)
+  for (const s2 of [-1, 1]) box(add, 7.4, h - 4, d, m.sand, s2 * 9.3, 4, 0)
+  box(add, w, h * 0.2, d, m.sand, 0, h * 0.8, 0)
+  for (const z of [d / 2 + 0.05, -d / 2 - 0.05]) { add(new THREE.BoxGeometry(11, h * 0.56, 0.3), m.stoneDark, 0, 4 + h * 0.28, z); add(new THREE.BoxGeometry(11, 0.7, 0.35), m.lamp, 0, 4 + h * 0.56, z) }
+  add(new THREE.BoxGeometry(5.2, 3.4, 0.3), m.stoneDark, 0, h * 0.8 + 3, d / 2 + 0.06)
+  box(add, w + 2, 1.4, d + 2, m.stone, 0, h)
+  for (const x of [-10.5, 0, 10.5]) {
+    for (const z of [-2.4, 2.4]) { cyl(add, 0.3, 0.3, 3.2, m.stone, x - 1.4, h + 1.4, z, 6); cyl(add, 0.3, 0.3, 3.2, m.stone, x + 1.4, h + 1.4, z, 6) }
+    dome(add, x === 0 ? 4.2 : 3, m.stoneDark, x, h + 4.6, 0)
+  }
+  ball(add, 0.5, m.gold, 0, h + 9, 0)
+  return done(group, 15)
 }
 
 function sphinx(m: LandmarkMats): Piece {
@@ -795,10 +882,16 @@ function tvPod(m: LandmarkMats, h: number): Piece {
 
 function stupa(m: LandmarkMats): Piece {
   const { group, add } = kit()
-  for (let i = 0; i < 3; i += 1) cyl(add, 15 - i * 3, 17 - i * 3, 3, m.white, 0, i * 3, 0, 14)
-  dome(add, 12, m.white, 0, 9, 0)
-  cone(add, 2.4, 22, m.gold, 0, 21, 0, 8)
-  return done(group, 18)
+  // plataformas em degraus com nichos acesos, cúpula, harmika e espiral de anéis dourados
+  for (let i = 0; i < 4; i += 1) cyl(add, 19 - i * 3, 21 - i * 3, 2.6, m.white, 0, i * 2.6, 0, 16)
+  for (let i = 0; i < 12; i += 1) { const a = (i / 12) * Math.PI * 2; add(new THREE.BoxGeometry(1.4, 1.5, 0.3), m.lamp, Math.cos(a) * 20.3, 1.3, Math.sin(a) * 20.3).rotation.y = -a + Math.PI / 2 }
+  dome(add, 13, m.white, 0, 10.4, 0)
+  box(add, 5.6, 4.2, 5.6, m.gold, 0, 23.2, 0)
+  for (const z of [2.85, -2.85]) add(new THREE.BoxGeometry(1.6, 0.6, 0.15), m.stoneDark, 0, 25.2, z)
+  for (let i = 0; i < 13; i += 1) cyl(add, 3 - i * 0.2, 3.2 - i * 0.2, 0.9, i % 2 ? m.gold : m.white, 0, 27.4 + i * 1.2, 0, 10)
+  cone(add, 0.5, 4, m.gold, 0, 43, 0, 6)
+  ball(add, 0.55, m.lamp, 0, 47.4, 0)
+  return done(group, 22)
 }
 
 export const LANDMARKS = {
