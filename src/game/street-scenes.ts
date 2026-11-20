@@ -35,7 +35,7 @@ export function rng(seed: string): () => number {
 
 const PASTEL = [['#e8b04a', '#4a360e'], ['#d9604a', '#44160d'], ['#5aa6c9', '#10303f'], ['#8fc47a', '#1c3714'], ['#e58fb0', '#44192a'], ['#f0e0a0', '#43391a'], ['#c9885a', '#3a2412']]
 
-function palm(mats: { trunk: THREE.Material; frond: THREE.Material }, scale = 1): THREE.Group {
+export function palm(mats: { trunk: THREE.Material; frond: THREE.Material }, scale = 1): THREE.Group {
   const g = new THREE.Group()
   const trunk = mesh(new THREE.CylinderGeometry(0.13 * scale, 0.24 * scale, 6.4 * scale, 6), mats.trunk, 0, 3.2 * scale)
   g.add(trunk)

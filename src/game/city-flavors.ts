@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { waterSide } from './city-streets'
-import { basic, glowPlane, mesh, std, type StreetCtx } from './street-scenes'
+import { basic, glowPlane, mesh, palm, std, type StreetCtx } from './street-scenes'
 import { waveTexture } from './visuals/street-textures'
 
 /** Assinatura de cada cidade importante: o que só existe nela, por cima do estilo de rua da região. */
@@ -236,6 +236,207 @@ function vegas(ctx: StreetCtx): void {
   }
 }
 
+
+function umbrellaPines(ctx: StreetCtx): void {
+  const trunk = std('#5a4632', '#120c06')
+  const leaf = std('#2c5a2e', '#0b2010')
+  for (let i = 0; i < 18; i += 1) {
+    const g = new THREE.Group()
+    const t = mesh(new THREE.CylinderGeometry(0.22, 0.34, 8.4, 6), trunk, 0, 4.2)
+    t.rotation.z = (i % 2 ? 1 : -1) * 0.06
+    g.add(t)
+    const crown = mesh(new THREE.SphereGeometry(3.6, 9, 5), leaf, 0, 9.2)
+    crown.scale.y = 0.42
+    g.add(crown)
+    g.position.x = walkX(ctx, sideAt(i), 0.8)
+    ctx.prop(g, 50 - i * 33, 594)
+  }
+}
+
+function romanFountain(ctx: StreetCtx): void {
+  const stone = std('#d8d0bd', '#2a2518')
+  const water = basic('#8fd8ff')
+  for (let i = 0; i < 4; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.CylinderGeometry(2.4, 2.6, 0.9, 14), stone, 0, 0.45))
+    g.add(mesh(new THREE.CylinderGeometry(2.1, 2.1, 0.12, 14), water, 0, 0.9))
+    g.add(mesh(new THREE.CylinderGeometry(0.35, 0.5, 2.6, 8), stone, 0, 1.6))
+    g.add(mesh(new THREE.CylinderGeometry(1.2, 0.5, 0.3, 10), stone, 0, 2.7))
+    g.add(mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.08, 10), water, 0, 2.9))
+    g.add(mesh(new THREE.SphereGeometry(0.28, 6, 5), stone, 0, 3.4))
+    const halo = glowPlane(ctx, '#9fe0ff', 7, 5, 0.5)
+    halo.position.y = 1.6
+    g.add(halo)
+    const halo2 = halo.clone()
+    halo2.rotation.y = Math.PI / 2
+    g.add(halo2)
+    g.position.x = walkX(ctx, sideAt(i), 0.7)
+    ctx.prop(g, -10 - i * 150, 600)
+  }
+}
+
+function amsterdamBikes(ctx: StreetCtx): void {
+  const black = std('#16181b')
+  const rail = std('#1c2024')
+  const bike = (color: string) => {
+    const g = new THREE.Group()
+    const frame = std(color, '#101010')
+    for (const z of [-0.5, 0.5]) { const w = mesh(new THREE.TorusGeometry(0.34, 0.035, 5, 12), black, 0, 0.36, z); w.rotation.y = Math.PI / 2; g.add(w) }
+    g.add(mesh(new THREE.BoxGeometry(0.05, 0.06, 1.0), frame, 0, 0.62, 0))
+    g.add(mesh(new THREE.BoxGeometry(0.4, 0.05, 0.05), black, 0, 0.98, -0.5))
+    g.add(mesh(new THREE.BoxGeometry(0.2, 0.06, 0.3), black, 0, 0.82, 0.25))
+    return g
+  }
+  const colors = ['#c93a3a', '#2a6ac9', '#d9b030', '#3a9a5a', '#e8e8e8']
+  for (const side of [-1, 1]) ctx.group.add(mesh(new THREE.BoxGeometry(0.08, 0.9, 1500), rail, side * (ctx.curbX + 0.35), 0.62, -620))
+  for (let i = 0; i < 20; i += 1) {
+    const side = sideAt(i)
+    const row = new THREE.Group()
+    for (let k = 0; k < 5; k += 1) { const b = bike(colors[(i + k) % colors.length]); b.position.z = k * 0.9; b.position.x = -side * 0.1; row.add(b) }
+    row.position.x = side * (ctx.curbX + 0.55)
+    ctx.prop(row, 40 - i * 30, 600)
+  }
+  const pot = std('#6a4a2a')
+  const tulips = ['#e8344a', '#ffd22d', '#ff8ad0', '#ff7a2d'].map(c => std(c, c, { emissiveIntensity: 0.25 }))
+  for (let i = 0; i < 14; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.BoxGeometry(0.9, 0.5, 0.9), pot, 0, 0.25))
+    for (let k = 0; k < 6; k += 1) g.add(mesh(new THREE.SphereGeometry(0.13, 6, 5), tulips[(i + k) % 4], (k % 3 - 1) * 0.25, 0.7, (Math.floor(k / 3) - 0.5) * 0.4))
+    g.position.x = sideAt(i + 1) * (ctx.curbX + 1.0)
+    ctx.prop(g, 20 - i * 42, 588)
+  }
+}
+
+function dubaiLuxury(ctx: StreetCtx): void {
+  const gold = basic('#ffcf6a')
+  const cyan = basic('#6ae0ff')
+  const trunk = std('#6a5236')
+  const frond = std('#3a7a3c', '#0e2a12', { side: THREE.DoubleSide })
+  for (let i = 0; i < 6; i += 1) {
+    const g = new THREE.Group()
+    const ring = mesh(new THREE.TorusGeometry(ctx.roadHalf + 2.4, 0.18, 6, 28, Math.PI), i % 2 ? gold : cyan, 0, 0.1)
+    g.add(ring)
+    const halo = glowPlane(ctx, i % 2 ? '#ffcf6a' : '#6ae0ff', ctx.roadHalf * 2 + 8, 5, 0.4)
+    halo.position.y = ctx.roadHalf + 2.4
+    g.add(halo)
+    ctx.prop(g, 20 - i * 100, 600)
+  }
+  for (let i = 0; i < 20; i += 1) {
+    const p = palm({ trunk, frond }, 1.15)
+    p.position.x = walkX(ctx, sideAt(i), 0.8)
+    p.rotation.y = i
+    const up = glowPlane(ctx, '#ffd890', 4, 6, 0.35)
+    up.position.set(0, 2.5, 0)
+    p.add(up)
+    ctx.prop(p, 40 - i * 30, 600)
+  }
+  const colors = ['#f0c030', '#e8e8f0', '#d03030', '#2a2a30']
+  const lamp = basic('#fff0c0')
+  for (let i = 0; i < 6; i += 1) {
+    const g = new THREE.Group()
+    const paint = std(colors[i % 4], '#101010', { metalness: 0.5, roughness: 0.3 })
+    g.add(mesh(new THREE.BoxGeometry(1.95, 0.5, 4.6), paint, 0, 0.55))
+    g.add(mesh(new THREE.BoxGeometry(1.6, 0.4, 2.0), std('#10161c'), 0, 0.95, 0.3))
+    for (const x of [-0.7, 0.7]) g.add(mesh(new THREE.BoxGeometry(0.5, 0.1, 0.1), lamp, x, 0.62, -2.3))
+    g.position.x = walkX(ctx, sideAt(i), 0.3)
+    g.rotation.y = sideAt(i) > 0 ? 0 : Math.PI
+    ctx.prop(g, -20 - i * 96, 600)
+  }
+}
+
+function istanbulTram(ctx: StreetCtx): void {
+  const side = waterSide(ctx.cityId)
+  const cream = std('#efe6d2', '#2a2418')
+  const red = std('#b5262a', '#2a0808')
+  const lit = basic('#fff0c0')
+  const tram = new THREE.Group()
+  for (let c = 0; c < 3; c += 1) {
+    const car = new THREE.Group()
+    car.add(mesh(new THREE.BoxGeometry(2.4, 2.9, 9), cream, 0, 0))
+    car.add(mesh(new THREE.BoxGeometry(2.44, 0.5, 9.04), red, 0, -1.0))
+    for (const s of [-1, 1]) car.add(mesh(new THREE.BoxGeometry(0.06, 0.9, 7.8), lit, s * 1.22, 0.5))
+    car.position.z = c * 9.3
+    tram.add(car)
+  }
+  tram.position.set(side * (ctx.curbX + 1.7), 2.0, -200)
+  ctx.group.add(tram)
+  ctx.tick(scroll => { tram.position.z = ((((-420 + scroll * 0.55) % 600) + 600) % 600) - 520 })
+  const rails = std('#3a3f45')
+  ctx.group.add(mesh(new THREE.BoxGeometry(0.1, 0.06, 1500), rails, side * (ctx.curbX + 0.9), 0.4, -620))
+  ctx.group.add(mesh(new THREE.BoxGeometry(0.1, 0.06, 1500), rails, side * (ctx.curbX + 2.5), 0.4, -620))
+  const colors = ['#ff3b3b', '#ffb02a', '#2ad0c9', '#4a7bff', '#b04dff', '#7bd44a']
+  const cable = std('#15181c')
+  const half = ctx.roadHalf + 2.6
+  for (let i = 0; i < 18; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.BoxGeometry(half * 2, 0.05, 0.05), cable, 0, 7.2))
+    for (let k = 0; k < 8; k += 1) {
+      const x = -half + 1 + (k * (half * 2 - 2)) / 7
+      const l = mesh(new THREE.SphereGeometry(0.3, 8, 6), basic(colors[(k + i) % colors.length]), x, 6.7)
+      g.add(l)
+      const halo = glowPlane(ctx, colors[(k + i) % colors.length], 2.2, 2.2, 0.55)
+      halo.position.set(x, 6.7, 0.1)
+      g.add(halo)
+    }
+    ctx.prop(g, 40 - i * 34, 612)
+  }
+}
+
+function berlinWall(ctx: StreetCtx): void {
+  const concrete = std('#9a9a96', '#1c1c1a')
+  const paints = ['#ff3b8b', '#3be0ff', '#ffd23a', '#7bff6a', '#ff6a3a', '#b06bff'].map(c => basic(c))
+  const rnd = (n: number) => ((Math.sin(n * 12.9898) * 43758.5453) % 1 + 1) % 1
+  for (let i = 0; i < 30; i += 1) {
+    const side = sideAt(i)
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.BoxGeometry(0.5, 3.6, 3.5), concrete, 0, 1.8))
+    g.add(mesh(new THREE.CylinderGeometry(0.28, 0.28, 3.5, 8), concrete, 0, 3.7).rotateX(Math.PI / 2))
+    for (let k = 0; k < 3; k += 1) {
+      const w = 0.6 + rnd(i * 5 + k) * 1.4
+      const h = 0.5 + rnd(i * 7 + k) * 1.2
+      g.add(mesh(new THREE.BoxGeometry(0.04, h, w), paints[Math.floor(rnd(i * 3 + k) * 6)], -side * 0.27, 0.8 + k * 0.9, (rnd(i + k) - 0.5) * 1.6))
+    }
+    g.position.x = side * (ctx.edgeX - 0.3)
+    ctx.prop(g, 55 - i * 20, 600)
+  }
+  const dark = std('#1b1e22')
+  const green = basic('#3dff7a')
+  for (let i = 0; i < 6; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.CylinderGeometry(0.08, 0.1, 4.2, 6), dark, 0, 2.1))
+    g.add(mesh(new THREE.BoxGeometry(0.9, 1.5, 0.3), dark, 0, 4.6))
+    g.add(mesh(new THREE.BoxGeometry(0.4, 0.9, 0.34), green, 0, 4.4))
+    g.add(mesh(new THREE.SphereGeometry(0.2, 6, 5), green, 0, 5.1))
+    g.position.x = walkX(ctx, sideAt(i), 0.2)
+    ctx.prop(g, 10 - i * 100, 600)
+  }
+}
+
+function sydneyHarbour(ctx: StreetCtx): void {
+  const side = waterSide(ctx.cityId)
+  const white = std('#f0f0ee', '#2a2a2a')
+  const green = std('#1f6a52', '#08201a')
+  const lit = basic('#fff0c0')
+  for (let i = 0; i < 5; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.BoxGeometry(5, 1.4, 16), green, 0, 0.7))
+    g.add(mesh(new THREE.BoxGeometry(4.6, 1.4, 12), white, 0, 2.1))
+    for (const x of [-1, 1]) g.add(mesh(new THREE.BoxGeometry(0.06, 0.7, 10), lit, x * 2.32, 2.2))
+    g.add(mesh(new THREE.BoxGeometry(3.4, 0.9, 5), white, 0, 3.2, 1))
+    g.position.x = side * (ctx.edgeX + 34 + (i % 3) * 18)
+    ctx.prop(g, -30 - i * 120, 600)
+  }
+  for (let i = 0; i < 10; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.BoxGeometry(1.8, 0.6, 5), white, 0, 0.3))
+    const sail = mesh(new THREE.ConeGeometry(1.4, 7, 3), white, 0, 4.2)
+    sail.scale.z = 0.12
+    g.add(sail)
+    g.position.x = side * (ctx.edgeX + 24 + (i % 4) * 14)
+    ctx.prop(g, 10 - i * 60, 600)
+  }
+}
+
 export const CITY_FLAVORS: Record<string, Flavor[]> = {
   paris: [cafe, morrisColumns, guimard],
   londres: [londonStreet],
@@ -245,4 +446,10 @@ export const CITY_FLAVORS: Record<string, Flavor[]> = {
   veneza: [gondolas],
   havana: [havanaCars],
   'las-vegas': [vegas],
+  roma: [umbrellaPines, romanFountain],
+  amsterda: [amsterdamBikes],
+  dubai: [dubaiLuxury],
+  istambul: [istanbulTram],
+  berlim: [berlinWall],
+  sydney: [sydneyHarbour],
 }
