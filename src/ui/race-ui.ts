@@ -387,7 +387,7 @@ export class RaceUI {
       const stars = '★'.repeat(contract.tier) + '☆'.repeat(3 - contract.tier)
       const warn = matches ? '' : `<div class="ct-warn">SEU DESTINO ATUAL É ${currentTheme.toUpperCase()}. PARA ESTE CONTRATO, ESCOLHA NO MAPA UMA CIDADE DE ${themeLabel.toUpperCase()}${examples.length ? ` (EX.: ${examples.join(', ').toUpperCase()})` : ''}.</div>`
       const button = active ? '<button class="game-btn" data-cancel-contract="1">CANCELAR CONTRATO</button>' : `<button class="game-btn primary" data-accept-contract="${contract.id}">ACEITAR</button>`
-      return `<article class="ct-card ${active ? 'is-active' : ''}" data-tier="${contract.tier}"><header><span class="ct-stars">${stars}</span><b>${contract.title}</b>${active ? '<em>ACEITO</em>' : ''}</header><p class="ct-rule">${cargoRule}</p><div class="ct-obj">${objective}</div><div class="ct-meta"><span>CENÁRIO · ${themeLabel.toUpperCase()}</span><strong>+${fmt(contract.reward.credits)} CR · +${fmt(contract.reward.xp)} XP</strong></div>${warn}${button}</article>`
+      return `<article class="ct-card ${active ? 'is-active' : ''}" data-tier="${contract.tier}"><header><span class="ct-stars">${stars}</span><b>${contract.title}</b>${active ? '<em>ACEITO</em>' : ''}</header><p class="ct-rule">${cargoRule}</p><div class="ct-obj">${objective}</div><div class="ct-meta"><span>DESTINO · ${themeLabel.toUpperCase()}</span><strong>+${fmt(contract.reward.credits)} CR · +${fmt(contract.reward.xp)} XP</strong></div>${warn}${button}</article>`
     }).join('')
     const list = this.root.querySelector<HTMLElement>('.contracts-list')
     if (list) list.innerHTML = html

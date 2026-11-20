@@ -51,3 +51,33 @@ describe('entrega do contrato', () => {
     expect(citiesByTheme('deserto').length).toBeGreaterThan(0)
   })
 })
+
+describe('contratos por cidade do mapa', () => {
+  it('sorteia o destino entre as cidades que o jogador tem e paga mais nas fases distantes', () => {
+    const owned = ['sao-paulo', 'paris']
+    const board = generateBoard(3, 8, owned)
+    for (const entry of board) {
+      expect(owned).toContain(entry.cityId)
+      expect(entry.title).toContain(entry.cityName!)
+    }
+    const same = generateBoard(3, 8, owned)
+    expect(same.map(c => c.id)).toEqual(board.map(c => c.id))
+  })
+  it('sem cidades informadas mantém o comportamento antigo por tema', () => {
+    const board = generateBoard(3, 3)
+    expect(board.every(entry => entry.cityId === undefined)).toBe(true)
+  })
+  it('exige a cidade exata quando o contrato tem cityId', () => {
+    const c = contract({ cityId: 'paris', cityName: 'Paris', city: 'cidade' })
+    expect(contractLive(c, { ...base, distance: 500, cityId: 'paris' }).failed).toBeNull()
+    expect(contractLive(c, { ...base, distance: 500, cityId: 'sao-paulo' }).failed).toBe('wrong-city')
+    // mesmo tema, cidade errada: ainda falha
+    expect(contractLive(c, { ...base, distance: 2000, cityId: 'londres' }).delivered).toBe(false)
+  })
+  it('guarda uma cópia do contrato aceito no estado', () => {
+    const board = generateBoard(1, 3, ['sao-paulo'])
+    const state = { ...defaultCareer(), activeContract: board[0].id, activeData: board[0] }
+    const report = deliverContract(state, board[0])
+    expect(report!.career.activeData).toBeNull()
+  })
+})

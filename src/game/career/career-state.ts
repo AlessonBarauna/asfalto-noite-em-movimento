@@ -10,6 +10,8 @@ export type CareerState = {
   boardSeed: number
   /** Contrato aceito para a próxima corrida (id do quadro atual) ou '' se nenhum. */
   activeContract: string
+  /** Cópia do contrato aceito (o quadro muda quando o jogador compra cidades). */
+  activeData: Contract | null
   contractsDone: number
   carsJumpedTotal: number
   nearMissTotal: number
@@ -18,10 +20,18 @@ export type CareerState = {
 }
 
 export function defaultCareer(): CareerState {
-  return { xp: 0, boardSeed: 1, activeContract: '', contractsDone: 0, carsJumpedTotal: 0, nearMissTotal: 0, cityBest: {} }
+  return { xp: 0, boardSeed: 1, activeContract: '', activeData: null, contractsDone: 0, carsJumpedTotal: 0, nearMissTotal: 0, cityBest: {} }
 }
 
 const num = (v: unknown, fallback = 0) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : fallback)
+
+function parseContract(raw: unknown): Contract | null {
+  if (!raw || typeof raw !== 'object') return null
+  const c = raw as Partial<Contract>
+  if (typeof c.id !== 'string' || typeof c.city !== 'string' || typeof c.title !== 'string' || !c.objective || !c.reward) return null
+  if (typeof c.objective.target !== 'number' || typeof c.reward.credits !== 'number' || typeof c.reward.xp !== 'number') return null
+  return c as Contract
+}
 
 export function parseCareer(raw: unknown): CareerState {
   const base = defaultCareer()
@@ -35,6 +45,7 @@ export function parseCareer(raw: unknown): CareerState {
     xp: sanitizeXp(data.xp),
     boardSeed: Math.max(1, num(data.boardSeed, 1)),
     activeContract: typeof data.activeContract === 'string' ? data.activeContract : '',
+    activeData: parseContract(data.activeData),
     contractsDone: num(data.contractsDone),
     carsJumpedTotal: num(data.carsJumpedTotal),
     nearMissTotal: num(data.nearMissTotal),
@@ -59,11 +70,11 @@ export function applyRun(state: CareerState, run: RunSummary, rank: number = ran
   const rankBefore = rankLevel(state.xp)
   const xp = xpForRun(run)
   const board = generateBoard(state.boardSeed, rank)
-  const accepted = board.find(contract => contract.id === state.activeContract)
+  const accepted = state.activeData && state.activeData.id === state.activeContract ? state.activeData : board.find(contract => contract.id === state.activeContract)
   let contractReport: RunReport['contract']
   let contractCredits = 0
   let contractXp = 0
-  let { boardSeed, activeContract, contractsDone } = state
+  let { boardSeed, activeContract, activeData, contractsDone } = state
   if (accepted && !run.unranked) {
     const outcome = evaluateContract(accepted, run)
     contractReport = { contract: accepted, outcome }
@@ -74,6 +85,7 @@ export function applyRun(state: CareerState, run: RunSummary, rank: number = ran
       boardSeed += 1 // novo quadro depois de concluir
     }
     activeContract = '' // o contrato vale uma corrida, dê certo ou não
+    activeData = null
   }
   const cityBest = { ...state.cityBest }
   if (!run.unranked) cityBest[run.city] = Math.max(cityBest[run.city] ?? 0, Math.floor(run.distance))
@@ -84,6 +96,7 @@ export function applyRun(state: CareerState, run: RunSummary, rank: number = ran
       xp: nextXp,
       boardSeed,
       activeContract,
+      activeData,
       contractsDone,
       carsJumpedTotal: state.carsJumpedTotal + (run.unranked ? 0 : Math.floor(run.carsJumped)),
       nearMissTotal: state.nearMissTotal + (run.unranked ? 0 : Math.floor(run.nearMisses)),
@@ -117,7 +130,7 @@ export function deliverContract(state: CareerState, contract: Contract): Deliver
   const xp = state.xp + contract.reward.xp
   const rankAfter = rankLevel(xp)
   return {
-    career: { ...state, xp, activeContract: '', boardSeed: state.boardSeed + 1, contractsDone: state.contractsDone + 1 },
+    career: { ...state, xp, activeContract: '', activeData: null, boardSeed: state.boardSeed + 1, contractsDone: state.contractsDone + 1 },
     contract,
     credits: contract.reward.credits,
     xp: contract.reward.xp,

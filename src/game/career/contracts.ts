@@ -9,6 +9,7 @@
  */
 import { RANKS } from './ranks'
 import { cityUnlockId, isUnlocked } from './unlocks'
+import { cityById, countryOfCity } from './world'
 import type { RunSummary } from './xp'
 
 export type CargoKind = 'comum' | 'fragil' | 'urgente' | 'valiosa'
@@ -17,7 +18,11 @@ export type ObjectiveKind = 'distancia' | 'quase-batidas' | 'pulos'
 export type Contract = {
   id: string
   title: string
+  /** Tema visual da cidade do contrato (cidade/serra/deserto). */
   city: string
+  /** Cidade do mapa exigida e seu nome (contratos novos). */
+  cityId?: string
+  cityName?: string
   cargo: CargoKind
   objective: { kind: ObjectiveKind; target: number }
   /** Prazo em segundos (só cargas urgentes). */
@@ -78,23 +83,29 @@ function objectiveFor(random: () => number, rank: number, tier: 1 | 2 | 3, cargo
 }
 
 /** Gera o quadro de contratos para a patente e as cidades liberadas. Mesma semente, mesmo quadro. */
-export function generateBoard(seed: number, rank: number): Contract[] {
+export function generateBoard(seed: number, rank: number, ownedCityIds: readonly string[] = []): Contract[] {
   const random = seededRandom(seed)
+  const owned = ownedCityIds.map(id => cityById(id)).filter((city): city is NonNullable<typeof city> => !!city)
   const cities = CITIES.filter(city => isUnlocked(rank, cityUnlockId(city)))
   const cargos = availableCargo(rank)
   const tiers: Array<1 | 2 | 3> = [1, 2, 3]
   return tiers.slice(0, BOARD_SIZE).map((tier, i) => {
-    const city = pick(random, cities)
+    const target = owned.length ? pick(random, owned) : undefined
+    const city = target ? target.theme : pick(random, cities)
+    const stage = target ? (countryOfCity(target.id)?.stage ?? 1) : 1
+    const stageBonus = 1 + (stage - 1) * 0.06
     // o contrato difícil sempre tenta uma carga com regra, quando existir
     const cargo = tier === 1 ? 'comum' : pick(random, cargos.length > 1 ? cargos.filter(c => c !== 'comum') : cargos)
     const objective = objectiveFor(random, rank, tier, cargo)
     const worth = objective.kind === 'distancia' ? objective.target / 100 * 5 : objective.kind === 'quase-batidas' ? objective.target * 15 : objective.target * 30
-    const base = Math.round(worth * (0.9 + tier * 0.25) + 40 * tier)
+    const base = Math.round((worth * (0.9 + tier * 0.25) + 40 * tier) * stageBonus)
     const timeLimit = cargo === 'urgente' && objective.kind === 'distancia' ? Math.round(objective.target / 24) : undefined
     return {
       id: `c${seed}-${i}`,
-      title: `${CARGO[cargo].label} · ${CITY_LABEL[city] ?? city}`,
+      title: `${CARGO[cargo].label} · ${target?.name ?? CITY_LABEL[city] ?? city}`,
       city,
+      cityId: target?.id,
+      cityName: target?.name,
       cargo,
       objective,
       timeLimit,
@@ -105,12 +116,18 @@ export function generateBoard(seed: number, rank: number): Contract[] {
   })
 }
 
+/** O contrato exige a cidade exata (quando tem) ou, nos antigos, só o tema. */
+function wrongPlace(contract: Contract, run: RunSummary): boolean {
+  if (contract.cityId && run.cityId) return run.cityId !== contract.cityId
+  return run.city !== contract.city
+}
+
 export type ContractOutcome = { completed: boolean; reason: 'ok' | 'wrong-city' | 'cargo-lost' | 'too-slow' | 'objective-missed' | 'unranked' }
 
 /** Decide se a corrida cumpriu o contrato. O objetivo vale a qualquer momento da corrida. */
 export function evaluateContract(contract: Contract, run: RunSummary): ContractOutcome {
   if (run.unranked) return { completed: false, reason: 'unranked' }
-  if (run.city !== contract.city) return { completed: false, reason: 'wrong-city' }
+  if (wrongPlace(contract, run)) return { completed: false, reason: 'wrong-city' }
   if (contract.cargo === 'fragil' && run.hits > 0) return { completed: false, reason: 'cargo-lost' }
   const value = contract.objective.kind === 'distancia' ? run.distance : contract.objective.kind === 'quase-batidas' ? run.nearMisses : run.carsJumped
   if (value < contract.objective.target) return { completed: false, reason: 'objective-missed' }
@@ -141,7 +158,7 @@ export function contractLive(contract: Contract, run: RunSummary): ContractLive 
   const value = kind === 'distancia' ? run.distance : kind === 'quase-batidas' ? run.nearMisses : run.carsJumped
   const fraction = Math.min(1, Math.max(0, value / Math.max(1, target)))
   let failed: ContractLive['failed'] = null
-  if (run.city !== contract.city) failed = 'wrong-city'
+  if (wrongPlace(contract, run)) failed = 'wrong-city'
   else if (contract.cargo === 'fragil' && run.hits > 0) failed = 'cargo-lost'
   else if (contract.timeLimit !== undefined && run.seconds > contract.timeLimit && fraction < 1) failed = 'too-slow'
   const remaining = contract.timeLimit !== undefined ? Math.max(0, contract.timeLimit - run.seconds) : undefined

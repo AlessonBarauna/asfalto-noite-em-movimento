@@ -36,15 +36,7 @@ async function boot(): Promise<void> {
     restart: () => startRun(),
     toTitle: () => { bankRun(); game?.toTitle(); showTitleScreen() },
     openWorld: () => renderWorld(),
-    selectCity: id => {
-      const city = cityById(id)
-      if (!city || !save.data.world.cities.includes(id)) return
-      save.update({ city: id, scenario: city.theme })
-      game?.setCity(id, city.theme as ScenarioId)
-      ui.setDestination(id)
-      ui.toast(`DESTINO: ${city.name.toUpperCase()}`)
-      renderWorld()
-    },
+    selectCity: id => { if (travelTo(id)) renderWorld() },
     buyCountry: id => {
       const result = buyCountry(save.data.credits, save.data.world, id, careerRank())
       if (!result.success) { ui.toast(travelMessage(result.reason, id)); return }
@@ -63,13 +55,16 @@ async function boot(): Promise<void> {
     openLeaderboard: () => { ui.showLeaderboard(save.data.leaderboard) },
     openContracts: () => { if (!rankGate('mode-contratos')) renderContracts() },
     acceptContract: id => {
-      save.update({ career: { ...save.data.career, activeContract: id } })
-      ui.toast('CONTRATO ACEITO')
+      const contract = boardNow().find(entry => entry.id === id)
+      if (!contract) return
+      save.update({ career: { ...save.data.career, activeContract: id, activeData: contract } })
+      if (contract.cityId && contract.cityId !== save.data.city) travelTo(contract.cityId)
+      ui.toast(contract.cityName ? `CONTRATO ACEITO · DESTINO ${contract.cityName.toUpperCase()}` : 'CONTRATO ACEITO')
       renderContracts()
       refreshContractChip()
     },
     cancelContract: () => {
-      save.update({ career: { ...save.data.career, activeContract: '' } })
+      save.update({ career: { ...save.data.career, activeContract: '', activeData: null } })
       ui.toast('CONTRATO CANCELADO')
       renderContracts()
       refreshContractChip()
@@ -190,21 +185,37 @@ async function boot(): Promise<void> {
   /** XP já creditado de uma corrida em andamento, para não contar duas vezes ao pausar/sair. */
   let bankedXp = 0
   const THEME_LABEL: Record<string, string> = { cidade: 'Metrópole', serra: 'Serra', deserto: 'Deserto' }
-  const boardNow = (): Contract[] => generateBoard(save.data.career.boardSeed, careerRank())
+  const boardNow = (): Contract[] => generateBoard(save.data.career.boardSeed, careerRank(), save.data.world.cities)
+  /** Contrato aceito: usa a cópia guardada (o quadro muda quando o jogador compra cidades). */
+  const acceptedContract = (): Contract | undefined => {
+    const career = save.data.career
+    if (!career.activeContract) return undefined
+    if (career.activeData && career.activeData.id === career.activeContract) return career.activeData
+    return boardNow().find(entry => entry.id === career.activeContract)
+  }
+  function travelTo(id: string): boolean {
+    const city = cityById(id)
+    if (!city || !save.data.world.cities.includes(id)) return false
+    save.update({ city: id, scenario: city.theme })
+    game?.setCity(id, city.theme as ScenarioId)
+    ui.setDestination(id)
+    ui.toast(`DESTINO: ${city.name.toUpperCase()}`)
+    return true
+  }
   function renderContracts(): void {
     const theme = game?.city ?? save.data.scenario
     const cards = boardNow().map(contract => ({
       contract,
       cargoRule: CARGO[contract.cargo].rule,
       objective: describeObjective(contract),
-      themeLabel: THEME_LABEL[contract.city] ?? contract.city,
-      matches: contract.city === theme,
-      examples: citiesByTheme(contract.city as 'cidade' | 'serra' | 'deserto').slice(0, 3).map(city => city.name),
+      themeLabel: contract.cityName ?? THEME_LABEL[contract.city] ?? contract.city,
+      matches: contract.cityId ? true : contract.city === theme,
+      examples: contract.cityId ? [] : citiesByTheme(contract.city as 'cidade' | 'serra' | 'deserto').slice(0, 3).map(city => city.name),
     }))
     ui.showContracts(cards, save.data.career.activeContract, THEME_LABEL[theme] ?? theme, save.data.career.contractsDone)
   }
   function refreshContractChip(): void {
-    const active = isUnlocked(careerRank(), 'mode-contratos') ? boardNow().find(c => c.id === save.data.career.activeContract) : undefined
+    const active = isUnlocked(careerRank(), 'mode-contratos') ? acceptedContract() : undefined
     ui.setActiveContract(active ? active.title : null)
   }
   // contrato da corrida em andamento
@@ -221,7 +232,7 @@ async function boot(): Promise<void> {
     const { kind, target } = contract.objective
     const progress = kind === 'distancia' ? `${(live.value / 1000).toFixed(2).replace('.', ',')} / ${(target / 1000).toFixed(1).replace('.', ',')} KM` : `${Math.floor(live.value)} / ${target}`
     if (live.failed) {
-      const note = live.failed === 'cargo-lost' ? 'CARGA PERDIDA' : live.failed === 'too-slow' ? 'PRAZO ESGOTADO' : 'CENÁRIO ERRADO'
+      const note = live.failed === 'cargo-lost' ? 'CARGA PERDIDA' : live.failed === 'too-slow' ? 'PRAZO ESGOTADO' : 'CIDADE ERRADA'
       return { title: contract.title, text: progress, fraction: live.fraction, state: 'failed' as const, note }
     }
     const note = live.remaining !== undefined ? `PRAZO ${secondsText(live.remaining)}` : contract.cargo === 'fragil' ? 'NÃO BATA' : ''
@@ -243,7 +254,7 @@ async function boot(): Promise<void> {
     if (report.rankAfter > report.rankBefore) ui.toast(`PATENTE ${rankLabel(save.data.career.xp).toUpperCase()}`)
   }
   const summaryOf = (snap: { distance: number; nearMisses: number; carsJumped: number; hits: number; elapsed: number }): RunSummary => ({
-    distance: snap.distance, nearMisses: snap.nearMisses, carsJumped: snap.carsJumped, hits: snap.hits, seconds: snap.elapsed, city: game?.city ?? 'cidade', unranked: tuning.unranked,
+    distance: snap.distance, nearMisses: snap.nearMisses, carsJumped: snap.carsJumped, hits: snap.hits, seconds: snap.elapsed, city: game?.city ?? 'cidade', cityId: save.data.city, unranked: tuning.unranked,
   })
   /** Guarda o progresso parcial (créditos e distância) para não perder nada se a aba fechar no meio da corrida. */
   function bankRun(): void {
@@ -293,11 +304,12 @@ async function boot(): Promise<void> {
     runContract = null
     runSkip = false
     deliveredNote = ''
-    const active = isUnlocked(runRank, 'mode-contratos') ? boardNow().find(c => c.id === save.data.career.activeContract) : undefined
+    const active = isUnlocked(runRank, 'mode-contratos') ? acceptedContract() : undefined
     if (active) {
-      if (active.city !== game.city) {
+      const wrongPlace = active.cityId ? active.cityId !== save.data.city : active.city !== game.city
+      if (wrongPlace) {
         runSkip = true
-        ui.toast(`O CONTRATO PEDE O CENÁRIO ${(THEME_LABEL[active.city] ?? active.city).toUpperCase()} · TROQUE O DESTINO NO MAPA`)
+        ui.toast(`O CONTRATO PEDE ${(active.cityName ?? THEME_LABEL[active.city] ?? active.city).toUpperCase()} · TROQUE O DESTINO NO MAPA`)
       } else runContract = active
     }
     game.setTrafficBoost(runContract?.trafficBoost ?? 1)
@@ -386,9 +398,9 @@ async function boot(): Promise<void> {
       payout = bankProgress(result.distance, result.nearMisses) // paga só o que ainda não foi guardado
       // carreira: soma só o que ainda não foi creditado e avalia o contrato aceito
       const keptContract = save.data.career.activeContract
-      const before = { ...save.data.career, xp: Math.max(0, save.data.career.xp - bankedXp), activeContract: runSkip ? '' : keptContract }
-      report = applyRun(before, { distance: result.distance, nearMisses: result.nearMisses, carsJumped: result.carsJumped, hits: result.hits, seconds: result.seconds, city: result.city }, runRank)
-      if (runSkip) report = { ...report, career: { ...report.career, activeContract: keptContract } }
+      const before = { ...save.data.career, xp: Math.max(0, save.data.career.xp - bankedXp), activeContract: runSkip ? '' : keptContract, activeData: runSkip ? null : save.data.career.activeData }
+      report = applyRun(before, { distance: result.distance, nearMisses: result.nearMisses, carsJumped: result.carsJumped, hits: result.hits, seconds: result.seconds, city: result.city, cityId: save.data.city }, runRank)
+      if (runSkip) report = { ...report, career: { ...report.career, activeContract: keptContract, activeData: save.data.career.activeData } }
       payout += report.contractCredits
       save.update({
         leaderboard: inserted.board,
