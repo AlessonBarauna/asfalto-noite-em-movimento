@@ -81,16 +81,24 @@ class PrefsStore {
 
 export const controlPrefs = new PrefsStore()
 
-/** iOS exige permissão (e um toque do usuário) para ler o movimento; outros navegadores liberam direto. */
+let tiltGranted = false
+export function isTiltGranted(): boolean { return tiltGranted }
+
+/** iOS exige permissão (e um toque do usuário) para ler o movimento; outros navegadores liberam direto.
+ *  No iOS a permissão vale só para a página aberta: depois de recarregar, é preciso pedir de novo num toque. */
 export async function requestTiltPermission(): Promise<boolean> {
   const w = window as unknown as {
     DeviceMotionEvent?: { requestPermission?: () => Promise<string> }
     DeviceOrientationEvent?: { requestPermission?: () => Promise<string> }
   }
   if (!w.DeviceMotionEvent && !w.DeviceOrientationEvent) return false
-  const ask = w.DeviceMotionEvent?.requestPermission ?? w.DeviceOrientationEvent?.requestPermission
-  if (typeof ask === 'function') {
-    try { return (await ask.call(w.DeviceMotionEvent ?? w.DeviceOrientationEvent)) === 'granted' } catch { return false }
-  }
-  return true
+  const asks = [w.DeviceMotionEvent, w.DeviceOrientationEvent].filter(
+    (c): c is { requestPermission: () => Promise<string> } => typeof c?.requestPermission === 'function')
+  if (asks.length === 0) { tiltGranted = true; return true }
+  try {
+    // as duas chamadas saem no mesmo toque (síncronas), senão o iOS recusa a segunda
+    const results = await Promise.all(asks.map(c => c.requestPermission().catch(() => 'denied')))
+    tiltGranted = results.some(r => r === 'granted')
+  } catch { tiltGranted = false }
+  return tiltGranted
 }

@@ -1,5 +1,5 @@
 import type { Input } from '../engine/input'
-import { controlPrefs, type ControlPrefs, type PadId } from './controls-prefs'
+import { controlPrefs, isTiltGranted, requestTiltPermission, type ControlPrefs, type PadId } from './controls-prefs'
 
 /**
  * On-screen touch controls: a floating stick on the left half, drag-to-look on the right half,
@@ -61,6 +61,11 @@ export class TouchControls {
       smooth += (Math.max(-1, Math.min(1, x)) - smooth) * 0.35
       this.input.setTouchMove(smooth, 0)
     })
+
+    // iOS: depois de recarregar a página, a permissão do sensor some; pede de novo no primeiro toque se o esquema é inclinação.
+    window.addEventListener('pointerdown', () => {
+      if (this.scheme === 'tilt' && !isTiltGranted()) void requestTiltPermission()
+    }, { capture: true })
 
     const enable = () => document.body.classList.add('has-touch')
     if (matchMedia('(pointer: coarse)').matches) enable()
