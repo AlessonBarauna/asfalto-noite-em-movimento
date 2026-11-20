@@ -206,15 +206,22 @@ function stepped(m: LandmarkMats, tiers: Array<[number, number]>, w: number, mat
 
 function gothic(m: LandmarkMats, spires = 2, h = 46, mat: THREE.Material = m.stone): Piece {
   const { group, add } = kit()
-  box(add, 22, h * 0.45, 16, mat, 0, 0, 0)
-  const step = 14 / Math.max(1, spires - 1)
+  const w = 24
+  box(add, w, h * 0.42, 18, mat, 0, 0, 0)
+  box(add, w, 2, 19, m.stoneDark, 0, h * 0.4)
+  cyl(add, 3.6, 3.6, 0.8, m.glass, 0, h * 0.26, 9.2, 20).rotation.x = Math.PI / 2
+  for (const x of [-7, 0, 7]) box(add, 4, 8, 1, m.stoneDark, x, 0, 9.2)
+  const step = (w - 7) / Math.max(1, spires - 1)
   for (let i = 0; i < spires; i += 1) {
-    const x = spires === 1 ? 0 : -7 + i * step
-    box(add, 4, h * 0.7, 4, mat, x, 0, 6)
-    cone(add, 2.9, h * 0.38, mat, x, h * 0.7, 6, 4).rotation.y = Math.PI / 4
+    const x = spires === 1 ? 0 : -(w - 7) / 2 + i * step
+    const th = spires > 2 ? h * (0.7 + (i % 2) * 0.2) : h * 0.7
+    box(add, 5.4, th, 5.4, mat, x, 0, 6)
+    box(add, 1.2, 9, 0.8, m.stoneDark, x, th * 0.58, 8.8)
+    cone(add, 3.6, h * 0.34, spires > 2 ? m.gold : m.roof, x, th, 6, 4).rotation.y = Math.PI / 4
   }
-  cone(add, 2.2, h * 0.5, mat, 0, h * 0.45, -1, 4).rotation.y = Math.PI / 4
-  return done(group, 12)
+  cone(add, 2.2, h * 0.5, mat, 0, h * 0.42, -2, 4).rotation.y = Math.PI / 4
+  for (const s2 of [-1, 1]) { const fly = box(add, 1, h * 0.3, 1, mat, s2 * (w / 2 + 3), 0, -3); fly.rotation.z = s2 * 0.5 }
+  return done(group, w / 2 + 4)
 }
 
 function domeChurch(m: LandmarkMats, r = 10, mat: THREE.Material = m.stone, cap: THREE.Material = m.roof): Piece {
@@ -259,6 +266,18 @@ function mountain(m: LandmarkMats, kind: 'sugar' | 'table' | 'volcano' | 'alps' 
   return done(group, 70)
 }
 
+function triomphe(m: LandmarkMats): Piece {
+  const { group, add } = kit()
+  for (const s2 of [-1, 1]) box(add, 14, 38, 22, m.stone, s2 * 11.5, 0, 0)
+  box(add, 37, 8, 22, m.stone, 0, 28)
+  box(add, 39, 3, 24, m.stoneDark, 0, 36)
+  box(add, 39, 5, 24, m.stone, 0, 39)
+  for (let i = 0; i < 12; i += 1) box(add, 2, 3.4, 0.6, m.stoneDark, -16.5 + i * 3, 39.8, 12.2)
+  box(add, 10, 22, 0.8, m.stoneDark, 0, 0, 11.2)
+  for (const s2 of [-1, 1]) box(add, 5, 12, 1.2, m.white, s2 * 11.5, 16, 11.3)
+  return done(group, 20)
+}
+
 function arch(_m: LandmarkMats, w: number, h: number, depth: number, mat: THREE.Material, columns = 0): Piece {
   const { group, add } = kit()
   const leg = (w - Math.min(w * 0.45, 14)) / 2
@@ -269,18 +288,44 @@ function arch(_m: LandmarkMats, w: number, h: number, depth: number, mat: THREE.
 }
 
 function suspension(m: LandmarkMats, towerH: number, span: number, mat: THREE.Material): Piece {
+  const { group, add, strut } = kit()
+  const deckY = towerH * 0.3
+  for (const s2 of [-1, 1]) {
+    const x = (s2 * span) / 2
+    // torre art déco: duas pernas com travessas em X
+    for (const z of [-3.6, 3.6]) box(add, 2.4, towerH, 2.4, mat, x, 0, z)
+    for (const t of [0.35, 0.55, 0.75, 0.95]) box(add, 2.2, 1.6, 9.6, mat, x, towerH * t - 1.6, 0)
+    strut([x, towerH * 0.38, -3.6], [x, towerH * 0.55, 3.6], 0.5, mat)
+    strut([x, towerH * 0.38, 3.6], [x, towerH * 0.55, -3.6], 0.5, mat)
+    strut([x, towerH * 0.58, -3.6], [x, towerH * 0.75, 3.6], 0.5, mat)
+    strut([x, towerH * 0.58, 3.6], [x, towerH * 0.75, -3.6], 0.5, mat)
+  }
+  box(add, span * 1.7, 1.6, 10, m.stoneDark, 0, deckY, 0)
+  const pts = (zz: number) => { const out: THREE.Vector3[] = []; for (let i = 0; i <= 28; i += 1) { const t = i / 28; const x = -span / 2 + t * span; out.push(new THREE.Vector3(x, towerH * 0.97 - Math.sin(t * Math.PI) * (towerH * 0.97 - deckY - 3), zz)) } return out }
+  for (const zz of [-5, 5]) {
+    const line = pts(zz)
+    add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(line), 40, 0.6, 5), mat, 0, 0, 0)
+    for (let i = 1; i < line.length - 1; i += 1) strut([line[i].x, deckY + 1, zz], [line[i].x, line[i].y, zz], 0.12, mat)
+  }
+  for (const s2 of [-1, 1]) { const side = s2 * span; box(add, span * 0.4, 1.4, 8, m.stoneDark, side * 0.85, deckY, 0) }
+  return done(group, span * 0.9)
+}
+
+function burj(m: LandmarkMats): Piece {
   const { group, add } = kit()
-  for (const s of [-1, 1]) {
-    box(add, 3, towerH, 3, mat, s * span / 2, 0, 0)
-    box(add, 3.4, 3.4, 11, mat, s * span / 2, towerH * 0.62, 0)
+  const tiers = 8
+  for (let t = 0; t < tiers; t += 1) {
+    const size = 11 - t * 1.15
+    for (let k = 0; k < 3; k += 1) {
+      const a = (k / 3) * Math.PI * 2 + t * 0.35
+      const r = 5 - t * 0.4
+      towerBox(add, size * 0.7, 17, size * 0.7, m.towerBlue, Math.cos(a) * r, t * 17, Math.sin(a) * r)
+    }
   }
-  box(add, span * 1.6, 1.4, 9, m.stoneDark, 0, towerH * 0.3, 0)
-  const cable = (sign: number) => {
-    const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-span / 2, towerH, sign * 4), new THREE.Vector3(0, towerH * 0.2, sign * 4), new THREE.Vector3(span / 2, towerH, sign * 4))
-    add(new THREE.TubeGeometry(curve, 24, 0.5, 4), mat, 0, 0, 0)
-  }
-  cable(-1); cable(1)
-  return done(group, span * 0.8)
+  const top = tiers * 17
+  cyl(add, 1.4, 2.4, 30, m.towerBlue, 0, top, 0, 8)
+  cyl(add, 0.1, 0.6, 26, m.metal, 0, top + 30, 0, 6)
+  return done(group, 14)
 }
 
 function pagoda(m: LandmarkMats, tiers = 5, mat: THREE.Material = m.red): Piece {
@@ -389,45 +434,74 @@ function eye(m: LandmarkMats, r = 34): Piece {
 
 function cristo(m: LandmarkMats): Piece {
   const { group, add } = kit()
-  cone(add, 34, 44, m.rock, 0, 0, 0, 7)
-  box(add, 7, 9, 7, m.white, 0, 44)
-  cyl(add, 1.6, 2.4, 22, m.white, 0, 53, 0, 8)
-  box(add, 28, 2.2, 2.2, m.white, 0, 70)
-  ball(add, 2.1, m.white, 0, 76, 0)
-  return done(group, 36)
+  cone(add, 36, 46, m.rock, 0, 0, 0, 8)
+  for (let i = 0; i < 9; i += 1) { const a = (i / 9) * Math.PI * 2; cone(add, 3.4, 7, m.leaf, Math.cos(a) * 17, 8 + (i % 3) * 3, Math.sin(a) * 17, 6) }
+  box(add, 9, 8, 9, m.stoneDark, 0, 46)
+  box(add, 6, 4, 6, m.white, 0, 54)
+  cyl(add, 1.9, 3.6, 22, m.white, 0, 58, 0, 10)
+  box(add, 30, 2.4, 2.6, m.white, 0, 75)
+  box(add, 6, 2.6, 2.8, m.white, 0, 74.4)
+  for (const s2 of [-1, 1]) cyl(add, 0.9, 1.3, 7, m.white, s2 * 13.5, 68.2, 0, 6)
+  ball(add, 2.2, m.white, 0, 80.6, 0)
+  for (const x of [-4, 4]) add(new THREE.ConeGeometry(2.2, 8, 8, 1, true), m.gold, x, 51, 5)
+  return done(group, 38)
 }
 
 function statueLiberty(m: LandmarkMats): Piece {
   const { group, add } = kit()
-  box(add, 18, 8, 18, m.stoneDark, 0, 0)
-  box(add, 11, 22, 11, m.stone, 0, 8)
-  cyl(add, 3, 4.6, 26, m.roof, 0, 30, 0, 8)
-  ball(add, 2.4, m.roof, 0, 58, 0)
-  for (let i = 0; i < 5; i += 1) cone(add, 0.5, 4, m.roof, Math.sin((i / 5) * 3.1 - 1.5) * 2.5, 60.5, Math.cos((i / 5) * 3.1 - 1.5) * 0.4, 4)
-  cyl(add, 0.45, 0.45, 12, m.roof, 5.5, 44, 0, 6)
-  ball(add, 1.5, m.gold, 5.5, 57, 0)
-  return done(group, 10)
+  box(add, 24, 5, 24, m.stoneDark, 0, 0).rotation.y = Math.PI / 4
+  box(add, 17, 6, 17, m.stoneDark, 0, 5).rotation.y = Math.PI / 4
+  box(add, 12, 22, 12, m.stone, 0, 11)
+  box(add, 14, 2, 14, m.stoneDark, 0, 33)
+  cyl(add, 3.4, 5.4, 26, m.roof, 0, 35, 0, 10)
+  cyl(add, 1.3, 1.5, 17, m.roof, 5.2, 55, 0, 6)
+  box(add, 1.8, 1.4, 1.8, m.gold, 5.2, 71.5)
+  add(new THREE.ConeGeometry(1.5, 4, 6), m.gold, 5.2, 75.5, 0)
+  ball(add, 2.8, m.roof, 0, 63, 0)
+  for (let i = 0; i < 7; i += 1) {
+    const a = -Math.PI / 2.1 + (i / 6) * (Math.PI / 1.05)
+    cone(add, 0.45, 5, m.roof, Math.sin(a) * 3.2, 64.5 + Math.cos(a) * 0.6, Math.cos(a) * 3, 4).rotation.z = -Math.sin(a) * 0.9
+  }
+  box(add, 4, 6, 1.2, m.roof, -3.4, 50, 1.6)
+  return done(group, 13)
 }
 
 function sails(m: LandmarkMats): Piece {
   const { group, add } = kit()
-  box(add, 54, 6, 28, m.stone, 0, 0)
-  for (const [x, s] of [[-14, 1], [4, 1.25], [20, 0.8]] as const) {
-    const sail = cone(add, 9 * s, 24 * s, m.white, x, 6, 0, 3)
-    sail.scale.z = 1.5
-    sail.rotation.y = Math.PI / 6
+  box(add, 60, 6, 30, m.stone, 0, 0)
+  const shell = (x: number, z: number, r: number, rot: number) => {
+    const mesh = add(new THREE.SphereGeometry(r, 14, 8, 0, Math.PI / 2.2, 0, Math.PI / 1.9), m.white, x, 6, z)
+    mesh.rotation.y = rot
+    mesh.rotation.z = -0.55
+    mesh.scale.set(1, 1.15, 1)
   }
-  return done(group, 30)
+  for (const [x, z, r, rot] of [
+    [-22, 0, 13, 0.3], [-16, 1, 17, 0.3], [-9, 2, 21, 0.3], [-1, 3, 19, 0.3],
+    [6, -1, 9, 3.5], [11, -1, 12, 3.5], [17, 0, 15, 3.5],
+    [22, 6, 7, 0.1], [26, 7, 9, 0.1],
+  ] as const) shell(x, z, r, rot)
+  box(add, 64, 1.2, 4, m.glass, 0, 6, 15)
+  return done(group, 32)
 }
 
 function clockTower(m: LandmarkMats): Piece {
   const { group, add } = kit()
-  box(add, 9, 40, 9, m.stone, 0, 0)
-  box(add, 11, 12, 11, m.stone, 0, 40)
-  for (const [x, z] of [[0, 5.6], [0, -5.6]] as const) cyl(add, 3.6, 3.6, 0.5, m.white, x, 46, z, 20).rotation.x = Math.PI / 2
-  cone(add, 7, 16, m.roof, 0, 52, 0, 4).rotation.y = Math.PI / 4
-  box(add, 24, 14, 12, m.stone, -17, 0, 0)
-  return done(group, 22)
+  box(add, 10, 46, 10, m.stone, 0, 0)
+  for (const [x, z] of [[-5.3, -5.3], [5.3, -5.3], [-5.3, 5.3], [5.3, 5.3]]) box(add, 1.8, 48, 1.8, m.stone, x, 0, z)
+  box(add, 12.4, 3, 12.4, m.stoneDark, 0, 46)
+  box(add, 11, 14, 11, m.stone, 0, 49)
+  for (const [x, z, rot] of [[0, 5.8, 0], [0, -5.8, 0], [5.8, 0, Math.PI / 2], [-5.8, 0, Math.PI / 2]] as const) {
+    const face = cyl(add, 4, 4, 0.6, m.white, x, 52, z, 24)
+    face.rotation.x = Math.PI / 2
+    face.rotation.z = rot
+  }
+  box(add, 12, 2, 12, m.stoneDark, 0, 63)
+  cone(add, 8.4, 20, m.roof, 0, 65, 0, 4).rotation.y = Math.PI / 4
+  cyl(add, 0.2, 0.5, 8, m.gold, 0, 85, 0, 6)
+  box(add, 56, 16, 14, m.stone, -34, 0, 0)
+  box(add, 56, 3, 15, m.stoneDark, -34, 16)
+  for (const x of [-18, -34, -50, -60]) { box(add, 5, 26, 5, m.stone, x, 16, 0); cone(add, 3.8, 8, m.roof, x, 42, 0, 4).rotation.y = Math.PI / 4 }
+  return done(group, 52)
 }
 
 function towerBridge(m: LandmarkMats): Piece {
@@ -440,14 +514,23 @@ function towerBridge(m: LandmarkMats): Piece {
 
 function coliseu(m: LandmarkMats): Piece {
   const { group, add } = kit()
-  const geo = new THREE.CylinderGeometry(26, 28, 28, 28, 1, true)
-  const wall = add(geo, m.stone, 0, 14, 0)
-  ;(wall.material as THREE.Material).side = THREE.DoubleSide
-  for (let i = 0; i < 28; i += 1) {
-    const a = (i / 28) * Math.PI * 2
-    for (const y of [5, 13, 21]) box(add, 2, 5, 1.2, m.stoneDark, Math.cos(a) * 27, y, Math.sin(a) * 27).rotation.y = -a + Math.PI / 2
+  const sides = 32
+  const rx = 30
+  const rz = 24
+  for (let i = 0; i < sides; i += 1) {
+    const a = (i / sides) * Math.PI * 2
+    const ruin = Math.sin(a) > 0.2 && Math.cos(a) > -0.3
+    const levels = ruin ? 2 : 3
+    for (let lv = 0; lv < levels; lv += 1) {
+      const block = box(add, 5.5, 9, 3.2, lv === 2 ? m.stoneDark : m.stone, Math.cos(a) * rx, lv * 9, Math.sin(a) * rz)
+      block.rotation.y = -a + Math.PI / 2
+      const arc = box(add, 2.4, 5.4, 3.6, m.stoneDark, Math.cos(a) * rx * 1.005, lv * 9 + 1.2, Math.sin(a) * rz * 1.005)
+      arc.rotation.y = block.rotation.y
+    }
+    if (!ruin) { const top = box(add, 5.5, 4, 3.4, m.stone, Math.cos(a) * rx, 27, Math.sin(a) * rz); top.rotation.y = -a + Math.PI / 2 }
   }
-  return done(group, 30)
+  add(new THREE.CylinderGeometry(rx * 0.8, rx * 0.8, 1, 24), m.sand, 0, 0.5, 0).scale.z = rz / rx
+  return done(group, 33)
 }
 
 function parthenon(m: LandmarkMats): Piece {
@@ -587,7 +670,7 @@ export const LANDMARKS = {
   'catedral-brasilia': (m) => hyperboloid(m),
   'ponte-estaiada': (m) => suspension(m, 62, 70, m.white),
   eiffel: (m) => lattice(m, 112, 27, m.metal),
-  arco: (m) => arch(m, 36, 46, 18, m.stone),
+  arco: (m) => triomphe(m),
   notre: (m) => gothic(m, 2, 50),
   bigben: (m) => clockTower(m),
   'tower-bridge': (m) => towerBridge(m),
@@ -604,7 +687,7 @@ export const LANDMARKS = {
   liberdade: (m) => statueLiberty(m),
   empire: (m) => stepped(m, [[1, 36], [0.8, 18], [0.6, 16], [0.4, 14], [0.22, 10]], 22, m.tower, 22),
   hollywood: (m) => hollywood(m),
-  burj: (m) => stepped(m, [[1, 30], [0.82, 26], [0.66, 24], [0.5, 22], [0.34, 20], [0.2, 16]], 20, m.towerBlue, 30),
+  burj: (m) => burj(m),
   taipei: (m) => stepped(m, [[1, 14], [0.9, 12], [1, 12], [0.9, 12], [1, 12], [0.9, 12], [0.7, 14], [0.4, 14]], 18, m.towerBlue, 22),
   petronas: (m) => twinTowers(m),
   'marina-bay': (m) => marinaBay(m),
