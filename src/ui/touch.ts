@@ -37,19 +37,29 @@ export class TouchControls {
       this.baseline = null
       if (prefs.scheme !== 'tilt') this.input.setTouchMove(0, 0)
     })
-    window.addEventListener('deviceorientation', e => {
-      if (e.gamma === null && e.beta === null) return
-      const angle = (screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0) % 360
-      const raw = angle === 90 ? (e.beta ?? 0) : angle === 270 || angle === -90 ? -(e.beta ?? 0) : angle === 180 ? -(e.gamma ?? 0) : (e.gamma ?? 0)
+    // Inclinação: usa o acelerômetro (gravidade no plano da tela), que funciona como "volante" em qualquer
+    // orientação e não sofre com os travamentos dos ângulos beta/gamma.
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    let smooth = 0
+    window.addEventListener('devicemotion', e => {
+      const g = e.accelerationIncludingGravity
+      if (!g || g.x === null || g.y === null) return
+      const angle = ((screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0) % 360 + 360) % 360
+      const ax = g.x ?? 0
+      const ay = g.y ?? 0
+      // gravidade projetada no eixo horizontal da tela, conforme a rotação do aparelho
+      const sx = angle === 90 ? -ay : angle === 270 ? ay : angle === 180 ? -ax : ax
+      const tilt = Math.asin(Math.max(-1, Math.min(1, sx / 9.81))) * (180 / Math.PI) * (isIos ? 1 : -1)
       const act = this.active()
-      if (act && !this.wasActive) this.baseline = raw // zera a posição neutra ao começar a corrida
+      if (act && !this.wasActive) { this.baseline = tilt; smooth = 0 } // zera a posição neutra ao começar a corrida
       this.wasActive = act
       if (this.scheme !== 'tilt' || !act) return
-      if (this.baseline === null) this.baseline = raw
-      let x = (raw - this.baseline) / 22
+      if (this.baseline === null) this.baseline = tilt
+      let x = (tilt - this.baseline) / 24
       if (this.invertTilt) x = -x
-      if (Math.abs(x) < 0.07) x = 0
-      this.input.setTouchMove(Math.max(-1, Math.min(1, x)), 0)
+      if (Math.abs(x) < 0.06) x = 0
+      smooth += (Math.max(-1, Math.min(1, x)) - smooth) * 0.35
+      this.input.setTouchMove(smooth, 0)
     })
 
     const enable = () => document.body.classList.add('has-touch')

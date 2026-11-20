@@ -7,6 +7,8 @@ export type RunSummary = {
   /** Quantas batidas aconteceram na corrida. */
   hits: number
   city: string
+  /** Cidade do mapa em que a corrida aconteceu (os contratos podem exigir uma cidade específica). */
+  cityId?: string
   /** true em corridas com ajuste de tuning, que não contam para progressão. */
   unranked?: boolean
 }

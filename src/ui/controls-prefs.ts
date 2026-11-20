@@ -81,12 +81,16 @@ class PrefsStore {
 
 export const controlPrefs = new PrefsStore()
 
-/** iOS exige permissão (e um toque do usuário) para ler a inclinação; outros navegadores liberam direto. */
+/** iOS exige permissão (e um toque do usuário) para ler o movimento; outros navegadores liberam direto. */
 export async function requestTiltPermission(): Promise<boolean> {
-  const api = (window as unknown as { DeviceOrientationEvent?: { requestPermission?: () => Promise<string> } }).DeviceOrientationEvent
-  if (!api) return false
-  if (typeof api.requestPermission === 'function') {
-    try { return (await api.requestPermission()) === 'granted' } catch { return false }
+  const w = window as unknown as {
+    DeviceMotionEvent?: { requestPermission?: () => Promise<string> }
+    DeviceOrientationEvent?: { requestPermission?: () => Promise<string> }
+  }
+  if (!w.DeviceMotionEvent && !w.DeviceOrientationEvent) return false
+  const ask = w.DeviceMotionEvent?.requestPermission ?? w.DeviceOrientationEvent?.requestPermission
+  if (typeof ask === 'function') {
+    try { return (await ask.call(w.DeviceMotionEvent ?? w.DeviceOrientationEvent)) === 'granted' } catch { return false }
   }
   return true
 }

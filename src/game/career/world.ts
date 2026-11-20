@@ -118,6 +118,8 @@ export type WorldState = { countries: string[]; cities: string[] }
 
 export const defaultWorld = (): WorldState => ({ countries: [FIRST_COUNTRY], cities: [FIRST_CITY] })
 
+export const citiesByTheme = (theme: ScenarioTheme): WorldCity[] => COUNTRIES.flatMap(country => country.cities.filter(city => city.theme === theme))
+
 export const countryById = (id: string): WorldCountry | undefined => COUNTRIES.find(country => country.id === id)
 export const countryOfCity = (cityId: string): WorldCountry | undefined => COUNTRIES.find(country => country.cities.some(city => city.id === cityId))
 export const cityById = (id: string): WorldCity | undefined => countryOfCity(id)?.cities.find(city => city.id === id)
