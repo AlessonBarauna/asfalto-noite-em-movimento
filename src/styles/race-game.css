@@ -256,3 +256,15 @@ body.is-driving .touch{z-index:6}
   .screen-modal[data-screen="pause"] .modal-menu .game-btn.primary{grid-column:1 / -1}
   .screen-modal[data-screen="pause"] .sens-row{margin-top:8px}
 }
+
+/* Celular deitado: telas de menu com títulos menores para caber mais conteúdo. */
+@media (max-height:520px) and (orientation:landscape){
+  .screen-modal .modal{padding-top:16px;padding-bottom:16px}
+  .screen-modal .modal h2{font-size:clamp(26px,9vh,36px);margin:4px 0}
+  .screen-modal .modal p{font-size:12px;line-height:1.45;margin:4px 0}
+  .score-list .score-empty,.score-empty{grid-column:1 / -1;display:block;width:100%;padding:16px 8px}
+  .screen-modal[data-screen="garage"] .garage-modal{padding-top:12px}
+  .screen-modal[data-screen="garage"] .garage-modal>p{display:none}
+  .screen-modal[data-screen="garage"] .garage-wallet{margin-top:6px;padding:5px 10px}
+  .garage-section-title{margin:10px 0 5px}
+}
