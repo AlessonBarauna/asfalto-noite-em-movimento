@@ -5,7 +5,7 @@ import { Soundscape } from '../engine/soundscape'
 import type { Input } from '../engine/input'
 import type { Renderer } from '../engine/renderer'
 import { RACE_CONFIG } from './race-config'
-import { calculateScore, clampSteering, cruiseSpeed, hasTrafficSpawnGap, laneCenter, levelForDistance, trafficDifficultyByDistance, trafficSpeedFactor, trafficWaveSizeByDistance } from './race-rules'
+import { calculateScore, clampSteering, cruiseSpeed, hasTrafficSpawnGap, laneCenter, steerSpeedFactor, levelForDistance, trafficDifficultyByDistance, trafficSpeedFactor, trafficWaveSizeByDistance } from './race-rules'
 import type { TrafficKind } from './race-rules'
 import { RaceWorld } from './race-world'
 import { createGolG5Model } from './gol-g5'
@@ -348,7 +348,7 @@ export class RaceGame {
     const wanted = this.input.move.x
     const rate = Math.abs(wanted) > Math.abs(this.steer) ? 11 : 16
     this.steer += (wanted - this.steer) * Math.min(1, dt * rate)
-    this.x = clampSteering(this.x + this.steer * RACE_CONFIG.steerSpeed * sensitivity * dt)
+    this.x = clampSteering(this.x + this.steer * RACE_CONFIG.steerSpeed * sensitivity * steerSpeedFactor(this.speed) * dt)
     this.player.position.x = this.x
     if (Math.abs(this.steer) > 0.82 && this.speed > 26 && this.jumpY <= 0) this.sound.screech()
     this.playerVisual.rotation.z = THREE.MathUtils.damp(this.playerVisual.rotation.z, -this.steer * 0.075, 7, dt)

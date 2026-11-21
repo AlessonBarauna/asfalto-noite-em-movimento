@@ -19,6 +19,11 @@ export function clampSteering(x: number, halfWidth = RACE_CONFIG.roadHalfWidth -
   return Math.max(-halfWidth, Math.min(halfWidth, x))
 }
 
+/** Em velocidades muito altas o desvio lateral precisa acompanhar; sobe devagar e para em +50%. */
+export function steerSpeedFactor(speedMs: number): number {
+  return 1 + Math.min(0.5, Math.max(0, (speedMs - 30) / 200))
+}
+
 export function calculateScore(distanceMeters: number, nearMisses: number): number {
   return Math.max(0, Math.floor(distanceMeters * 10) + Math.max(0, Math.floor(nearMisses)) * 350)
 }
