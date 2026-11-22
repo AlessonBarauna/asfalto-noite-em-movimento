@@ -1,3 +1,4 @@
+import { cityRain } from './career/difficulty'
 import { defaultPowerLevels, powerDuration, type PowerLevels, CLEAR_REMOVES, FIRST_PICKUP_DISTANCE, POWERS, POWER_IDS, nextPickupGap, pickPower, powerFraction, type PowerId } from './powers'
 import * as THREE from 'three'
 import type { Audio } from '../engine/audio'
@@ -202,8 +203,9 @@ export class RaceGame {
   setCity(cityId: string, theme: ScenarioId): void {
     this.scenarioId = theme
     const scenario = this.world.setCity(cityId, theme)
-    this.setRain(scenario.rain && this.renderer.rainAllowed)
-    this.sound.setScene(theme, scenario.rain && this.renderer.rainAllowed)
+    const rain = cityRain(cityId, scenario.rain) && this.renderer.rainAllowed
+    this.setRain(rain)
+    this.sound.setScene(theme, rain)
   }
 
   setScenario(id: ScenarioId): void {

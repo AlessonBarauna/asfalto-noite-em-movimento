@@ -5,7 +5,7 @@ import { BRAZILIAN_TRAFFIC_MODELS } from '../game/traffic-vehicles'
 import { SUPERCAR } from '../game/supercar'
 import { POWERS, POWER_IDS, MAX_POWER_LEVEL, powerDuration, upgradeCost, type PowerId, type PowerLevels } from '../game/powers'
 import { controlPrefs, requestTiltPermission, PAD_LABELS, type PadId, type ControlScheme } from './controls-prefs'
-import { RANKS, describeObjective, rankStatus, nextUnlocks, requiredRank, vehicleUnlockId, STAGES, COUNTRIES, stageRank, countryTicket, cityTicket, cityById, countryOfCity, type RunReport, type WorldState } from '../game/career'
+import { difficultyLabel, RANKS, describeObjective, rankStatus, nextUnlocks, requiredRank, vehicleUnlockId, STAGES, COUNTRIES, stageRank, countryTicket, cityTicket, cityById, countryOfCity, type RunReport, type WorldState } from '../game/career'
 
 export type RaceUiState = {
   score: number
@@ -477,7 +477,8 @@ export class RaceUI {
     const city = cityById(cityId)
     const country = countryOfCity(cityId)
     this.set('.dest-name', `${country?.flag ?? ''} ${city?.name ?? 'São Paulo'}`.trim())
-    this.set('.dest-sub', `${country?.name ?? 'Brasil'} · ABRIR MAPA`)
+    const hard = difficultyLabel(cityId)
+    this.set('.dest-sub', `${country?.name ?? 'Brasil'}${hard ? ' · ' + hard : ''} · ABRIR MAPA`)
   }
 
   /** Monta o mapa-múndi: fases liberadas pela patente, países com passagem e cidades. */
