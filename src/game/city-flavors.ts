@@ -602,6 +602,149 @@ function buenosAiresKiosks(ctx: StreetCtx): void {
   }
 }
 
+function viennaCarriages(ctx: StreetCtx): void {
+  const black = std('#14161a')
+  const gold = std('#d4a83a', '#2a2008')
+  const horseC = std('#5a3a22')
+  const lamp = basic('#ffe2a0')
+  for (let i = 0; i < 6; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.BoxGeometry(1.5, 0.9, 2.0), black, 0, 1.1, 1.4))
+    g.add(mesh(new THREE.BoxGeometry(1.5, 0.12, 2.2), gold, 0, 0.6, 1.4))
+    for (const x of [-0.85, 0.85]) for (const z of [0.7, 2.1]) { const w = mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.1, 10), black, x, 0.5, z); w.rotation.z = Math.PI / 2; g.add(w) }
+    g.add(mesh(new THREE.BoxGeometry(0.5, 1.0, 1.9), horseC, 0, 1.0, -1.0))
+    g.add(mesh(new THREE.BoxGeometry(0.3, 0.7, 0.5), horseC, 0, 1.6, -2.1))
+    for (const x of [-0.6, 0.6]) g.add(mesh(new THREE.SphereGeometry(0.12, 6, 5), lamp, x, 1.9, 0.5))
+    const halo = glowPlane(ctx, '#ffe2a0', 4, 3, 0.35)
+    halo.position.set(0, 1.9, 0.5)
+    halo.rotation.y = Math.PI / 2
+    g.add(halo)
+    g.position.x = walkX(ctx, sideAt(i), 0.55)
+    g.rotation.y = sideAt(i) > 0 ? 0 : Math.PI
+    ctx.prop(g, -10 - i * 100, 600)
+  }
+}
+
+function pragueTram(ctx: StreetCtx): void { tram(ctx, '#b5262a', '#efe6d2', 2) }
+
+function pragueLamps(ctx: StreetCtx): void {
+  const iron = std('#1c1e22')
+  const lamp = basic('#ffd890')
+  for (let i = 0; i < 10; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.CylinderGeometry(0.08, 0.16, 3.4, 6), iron, 0, 1.7))
+    g.add(mesh(new THREE.ConeGeometry(0.4, 0.5, 6), iron, 0, 3.9))
+    g.add(mesh(new THREE.BoxGeometry(0.34, 0.6, 0.34), lamp, 0, 3.45))
+    const halo = glowPlane(ctx, '#ffd890', 3.4, 3.4, 0.45)
+    halo.position.y = 3.5
+    g.add(halo)
+    g.position.x = walkX(ctx, -sideAt(ctx.cityId.length), 0.25)
+    ctx.prop(g, 30 - i * 58, 580)
+  }
+}
+
+function niceBlueChairs(ctx: StreetCtx): void {
+  const blue = std('#2a6ad8', '#0a1f4a', { emissiveIntensity: 0.2 })
+  const colors = ['#ffd23a', '#ff7a8a', '#6ad0ff', '#ffffff'].map(c => std(c, c, { emissiveIntensity: 0.15 }))
+  const pole = std('#d8d8d8')
+  const side = waterSide(ctx.cityId)
+  for (let i = 0; i < 16; i += 1) {
+    const g = new THREE.Group()
+    for (let k = 0; k < 4; k += 1) {
+      const z = (k - 1.5) * 1.1
+      g.add(mesh(new THREE.BoxGeometry(0.55, 0.12, 0.55), blue, 0, 0.45, z))
+      g.add(mesh(new THREE.BoxGeometry(0.55, 0.6, 0.1), blue, -side * 0.28, 0.8, z))
+    }
+    g.position.x = side * (ctx.curbX + ctx.sidewalk * 0.45)
+    ctx.prop(g, 30 - i * 40, 640)
+  }
+  for (let i = 0; i < 8; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 5), pole, 0, 1.2))
+    g.add(mesh(new THREE.ConeGeometry(1.4, 0.5, 8), colors[i % 4], 0, 2.5))
+    g.position.x = side * (ctx.curbX + ctx.sidewalk * 0.9 + 3)
+    ctx.prop(g, 10 - i * 82, 656)
+  }
+}
+
+function zurichTram(ctx: StreetCtx): void { tram(ctx, '#2a6ad8', '#f0f0ee', 3) }
+
+function zurichStars(ctx: StreetCtx): void {
+  const cable = std('#15181c')
+  const half = ctx.roadHalf + 2.6
+  for (let i = 0; i < 14; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.BoxGeometry(half * 2, 0.05, 0.05), cable, 0, 7.0))
+    for (let k = 0; k < 6; k += 1) {
+      const x = -half + 1.2 + (k * (half * 2 - 2.4)) / 5
+      const star = mesh(new THREE.OctahedronGeometry(0.45), basic(k % 2 ? '#fff0c0' : '#bfe6ff'), x, 6.5)
+      star.scale.z = 0.3
+      g.add(star)
+      const halo = glowPlane(ctx, k % 2 ? '#fff0c0' : '#bfe6ff', 2.2, 2.2, 0.5)
+      halo.position.set(x, 6.5, 0.1)
+      g.add(halo)
+    }
+    ctx.prop(g, 30 - i * 44, 616)
+  }
+}
+
+function seoulStreetFood(ctx: StreetCtx): void {
+  const orange = std('#f08a1a', '#6a2a00', { emissiveIntensity: 0.35 })
+  const frame = std('#2a2a30')
+  const lit = basic('#fff0c0')
+  const red = basic('#ff2a3a')
+  for (let i = 0; i < 9; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.BoxGeometry(2.8, 0.1, 3.2), orange, 0, 2.5))
+    for (const x of [-1.3, 1.3]) for (const z of [-1.5, 1.5]) g.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.5, 5), frame, x, 1.25, z))
+    g.add(mesh(new THREE.BoxGeometry(2.4, 0.9, 0.2), frame, 0, 0.55, -1.5))
+    g.add(mesh(new THREE.SphereGeometry(0.16, 6, 5), lit, 0, 2.2, 0))
+    const halo = glowPlane(ctx, '#ffb060', 5, 4, 0.5)
+    halo.position.y = 1.8
+    halo.rotation.y = Math.PI / 2
+    g.add(halo)
+    g.position.x = walkX(ctx, sideAt(i), 0.6)
+    ctx.prop(g, 30 - i * 66, 600)
+  }
+  for (let i = 0; i < 6; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.CylinderGeometry(0.1, 0.1, 5, 6), frame, 0, 2.5))
+    g.add(mesh(new THREE.BoxGeometry(0.2, 1.8, 0.2), red, 0, 5.4))
+    g.add(mesh(new THREE.BoxGeometry(1.1, 0.2, 0.2), red, 0, 5.8))
+    g.position.x = walkX(ctx, sideAt(i + 1), 0.3)
+    ctx.prop(g, 0 - i * 100, 600)
+  }
+}
+
+function bangkokTuktuks(ctx: StreetCtx): void {
+  const green = std('#2aa84a', '#08240f')
+  const yellow = std('#f2c230', '#2a2008')
+  const dark = std('#16181b')
+  const lit = basic('#fff0c0')
+  for (let i = 0; i < 7; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.BoxGeometry(1.3, 0.9, 2.2), i % 2 ? green : yellow, 0, 0.9, 0))
+    g.add(mesh(new THREE.BoxGeometry(1.4, 0.1, 2.0), i % 2 ? yellow : green, 0, 1.9, 0.1))
+    for (const x of [-0.6, 0.6]) g.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.0, 5), dark, x, 1.4, 0.9))
+    for (const [x, z] of [[-0.6, 0.8], [0.6, 0.8], [0, -1.1]]) { const w = mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.18, 10), dark, x, 0.32, z); w.rotation.z = Math.PI / 2; g.add(w) }
+    g.add(mesh(new THREE.SphereGeometry(0.13, 6, 5), lit, 0, 0.9, -1.15))
+    g.position.x = walkX(ctx, sideAt(i), 0.5)
+    ctx.prop(g, -10 - i * 85, 596)
+  }
+  const wood = std('#6a4a2a')
+  const side = waterSide(ctx.cityId)
+  for (let i = 0; i < 5; i += 1) {
+    const g = new THREE.Group()
+    g.add(mesh(new THREE.BoxGeometry(1.0, 0.5, 7), wood, 0, 0.25))
+    const mast = mesh(new THREE.BoxGeometry(0.1, 2.2, 0.1), dark, 0, 1.5, -3.4)
+    mast.rotation.x = -0.5
+    g.add(mast)
+    g.add(mesh(new THREE.BoxGeometry(1.2, 0.08, 1.6), std('#d8402a'), 0, 1.5, 0.5))
+    g.position.x = side * (ctx.curbX + ctx.sidewalk * 0.6 + 4 + (i % 3) * 3)
+    ctx.prop(g, 0 - i * 110, 560)
+  }
+}
+
 export const CITY_FLAVORS: Record<string, Flavor[]> = {
   paris: [cafe, morrisColumns, guimard],
   londres: [londonStreet],
@@ -623,4 +766,10 @@ export const CITY_FLAVORS: Record<string, Flavor[]> = {
   'cidade-do-mexico': [mexicoPapelPicado],
   'buenos-aires': [buenosAiresKiosks],
   milao: [milanTram],
+  viena: [viennaCarriages],
+  praga: [pragueTram, pragueLamps],
+  nice: [niceBlueChairs],
+  zurique: [zurichTram, zurichStars],
+  seul: [seoulStreetFood],
+  bangkok: [bangkokTuktuks],
 }
