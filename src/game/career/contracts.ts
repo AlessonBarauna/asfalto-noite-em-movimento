@@ -1,5 +1,8 @@
 /**
- * Contratos de madrugada: a marca do jogo. O jogador é um motorista noturno e pega cargas com
+ * Objetivo da corrida: uma meta simples (distância, quase-batidas ou pulos) que paga créditos e XP.
+ * Valem em qualquer cidade. O motor abaixo ainda entende cargas e cidades de contratos antigos salvos.
+ *
+ * (Histórico) Contratos de madrugada: a marca do jogo. O jogador é um motorista noturno e pega cargas com
  * regras próprias. A carga muda a forma de dirigir e o pagamento:
  *  - comum:   sem restrição.
  *  - fragil:  uma única batida estraga a carga (o contrato falha), paga bem mais.
@@ -116,8 +119,28 @@ export function generateBoard(seed: number, rank: number, ownedCityIds: readonly
   })
 }
 
+/** Objetivo único e automático para a patente: meta simples, sem carga especial e sem cidade fixa. */
+export function generateObjective(seed: number, rank: number): Contract {
+  const random = seededRandom(seed * 7919 + 13)
+  const tier: 1 | 2 | 3 = rank <= 4 ? 1 : rank <= 7 ? 2 : 3
+  const objective = objectiveFor(random, rank, tier, 'comum')
+  const worth = objective.kind === 'distancia' ? objective.target / 100 * 5 : objective.kind === 'quase-batidas' ? objective.target * 15 : objective.target * 30
+  const base = Math.round(worth * (0.9 + tier * 0.25) + 40 * tier)
+  return {
+    id: `o${seed}`,
+    title: 'OBJETIVO',
+    city: '',
+    cargo: 'comum',
+    objective,
+    trafficBoost: 1,
+    reward: { credits: Math.round(base / 5) * 5, xp: Math.round(base * 0.45) },
+    tier,
+  }
+}
+
 /** O contrato exige a cidade exata (quando tem) ou, nos antigos, só o tema. */
 function wrongPlace(contract: Contract, run: RunSummary): boolean {
+  if (!contract.cityId && !contract.city) return false // objetivo vale em qualquer cidade
   if (contract.cityId && run.cityId) return run.cityId !== contract.cityId
   return run.city !== contract.city
 }

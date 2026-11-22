@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  LEGEND_STAR_XP, RANKS, applyRun, availableCargo, defaultCareer, evaluateContract, generateBoard, isUnlocked,
+  LEGEND_STAR_XP, RANKS, applyRun, availableCargo, generateObjective, defaultCareer, evaluateContract, generateBoard, isUnlocked,
   nextUnlocks, parseCareer, rankLabel, rankStatus, requiredRank, unlocksBetween, xpForRun, UNLOCKS,
 } from '../src/game/career'
 
@@ -136,10 +136,9 @@ describe('estado da carreira', () => {
     expect(r.rankAfter).toBeGreaterThanOrEqual(2)
     expect(r.newUnlocks.map(u => u.id)).toContain('garage-paint')
   })
-  it('contrato concluído paga, renova o quadro e fica sem aceitar', () => {
+  it('objetivo cumprido paga e sorteia um novo', () => {
     const state = { ...defaultCareer(), xp: 800, boardSeed: 5 }
-    const board = generateBoard(5, 3)
-    const target = board[0]
+    const target = generateObjective(5, 3)
     const accepted = { ...state, activeContract: target.id }
     const done = applyRun(accepted, run({ city: target.city, distance: 99999, nearMisses: 999, carsJumped: 999, seconds: 1, hits: 0 }))
     expect(done.contract?.outcome.completed).toBe(true)
@@ -148,18 +147,33 @@ describe('estado da carreira', () => {
     expect(done.career.activeContract).toBe('')
     expect(done.career.contractsDone).toBe(1)
   })
-  it('contrato que falha não renova o quadro mas é consumido', () => {
+  it('objetivo não cumprido continua valendo na próxima corrida', () => {
     const state = { ...defaultCareer(), xp: 800, boardSeed: 5 }
-    const target = generateBoard(5, 3)[0]
+    const target = generateObjective(5, 3)
     const failed = applyRun({ ...state, activeContract: target.id }, run({ city: target.city, distance: 10, nearMisses: 0, carsJumped: 0 }))
     expect(failed.contractCredits).toBe(0)
     expect(failed.career.boardSeed).toBe(5)
-    expect(failed.career.activeContract).toBe('')
+    expect(failed.career.activeContract).toBe(target.id)
   })
   it('corrida sem ranking não dá XP nem mexe no contrato', () => {
     const state = { ...defaultCareer(), activeContract: 'c1-0' }
     const r = applyRun(state, run({ unranked: true }))
     expect(r.career.xp).toBe(0)
     expect(r.career.activeContract).toBe('c1-0')
+  })
+})
+
+describe('objetivo automático', () => {
+  it('é determinístico, sem carga especial nem cidade fixa', () => {
+    const o = generateObjective(4, 5)
+    expect(o).toEqual(generateObjective(4, 5))
+    expect(o.cargo).toBe('comum')
+    expect(o.cityId).toBeUndefined()
+    expect(o.reward.credits).toBeGreaterThan(0)
+  })
+  it('vale em qualquer cidade', () => {
+    const o = generateObjective(2, 3)
+    const big = { distance: 99999, nearMisses: 999, carsJumped: 999, hits: 0, seconds: 1, city: 'deserto', cityId: 'cairo' }
+    expect(evaluateContract(o, big as never).completed).toBe(true)
   })
 })
