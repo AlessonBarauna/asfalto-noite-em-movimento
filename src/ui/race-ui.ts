@@ -51,6 +51,7 @@ export type RaceUiActions = {
   buyCountry(id: string): void
   buyCity(id: string): void
   setSensitivity(value: number): void
+  toggleSound(): void
 }
 
 export class RaceUI {
@@ -351,6 +352,7 @@ export class RaceUI {
       case 'world': this.actions.openWorld(); break
       case 'world-back': this.show('title'); break
       case 'controls': this.openControls(); break
+      case 'sound': this.actions.toggleSound(); break
       case 'powers': this.returnAfterPowers = this.screen === 'pause' ? 'pause' : 'title'; this.actions.openPowers(); break
       case 'powers-back': this.show(this.returnAfterPowers); break
       case 'controls-back': this.show(this.returnAfterControls); break
@@ -499,6 +501,16 @@ export class RaceUI {
     this.show('world')
   }
 
+  /** Atualiza o texto de todos os botões de som (título e pausa). */
+  setSound(on: boolean): void {
+    this.root.querySelectorAll<HTMLElement>('.sound-toggle').forEach(el => {
+      const mark = el.querySelector('span')
+      el.firstChild!.textContent = on ? 'SOM: LIGADO ' : 'SOM: DESLIGADO '
+      if (mark) mark.textContent = on ? '♪' : '✕'
+      el.classList.toggle('is-off', !on)
+    })
+  }
+
   /** Keeps every sensitivity slider (title and pause) in sync. */
   setSensitivity(value: number): void {
     this.root.querySelectorAll<HTMLInputElement>('.sens-slider').forEach(el => { if (Number(el.value) !== value) el.value = String(value) })
@@ -541,7 +553,7 @@ export class RaceUI {
     <div class="contract-chip"><span>OBJETIVO</span><b>—</b></div>
     <button class="dest-btn" data-action="world"><span>DESTINO</span><b class="dest-name">🇧🇷 São Paulo</b><small class="dest-sub">Brasil · ABRIR MAPA</small></button>
     <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
-    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="powers">PODERES <span>↗</span></button><button class="game-btn" data-action="controls">CONTROLES <span>↗</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
+    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="powers">PODERES <span>↗</span></button><button class="game-btn" data-action="controls">CONTROLES <span>↗</span></button><button class="game-btn sound-toggle" data-action="sound">SOM: LIGADO <span>♪</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
   </div>
   <div class="title-wallet">SALDO <b><span class="wallet-balance">0</span> CR</b></div><div class="title-best">RECORDE LOCAL <b class="title-best-value">0</b><span class="title-sub">MAIOR DISTÂNCIA <i class="title-dist-value">0 km</i></span><span class="title-sub">TOTAL RODADO <i class="title-total-value">0 km</i></span></div>
 </section>
@@ -556,7 +568,7 @@ export class RaceUI {
 </section>
 <section class="screen screen-modal" data-screen="pause"><button class="back-btn" data-action="resume">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · PAUSA</div><h2>${copy['pause.title']}</h2><p>${copy['pause.subtitle']}</p>
   <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
-  <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="garage">GARAGEM</button><button class="game-btn" data-action="powers">PODERES</button><button class="game-btn" data-action="controls">CONTROLES</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
+  <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="garage">GARAGEM</button><button class="game-btn" data-action="powers">PODERES</button><button class="game-btn" data-action="controls">CONTROLES</button><button class="game-btn sound-toggle" data-action="sound">SOM: LIGADO</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
 <section class="screen screen-modal" data-screen="results"><button class="back-btn" data-action="title">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · RESULTADO</div><h2>${copy['results.title']}</h2><div class="record-badge">${copy['results.best']}</div>
   <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="payout-panel"><span>RECOMPENSA DA CORRIDA</span><strong class="result-credits">+0 CR</strong><small>SALDO: <b class="result-balance">0</b> CR</small></div><div class="result-career"></div><div class="modal-tag result-note"></div>
