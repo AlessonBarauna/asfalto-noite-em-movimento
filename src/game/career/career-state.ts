@@ -1,6 +1,6 @@
 /** Estado de carreira salvo no navegador e a função que o atualiza ao fim de cada corrida. */
 import { rankLevel, sanitizeXp } from './ranks'
-import { evaluateContract, generateBoard, type Contract, type ContractOutcome } from './contracts'
+import { evaluateContract, generateObjective, type Contract, type ContractOutcome } from './contracts'
 import { unlocksBetween, type UnlockEntry } from './unlocks'
 import { cityMultiplier, xpForRun, type RunSummary, type XpBreakdown } from './xp'
 
@@ -69,7 +69,7 @@ export type RunReport = {
 export function applyRun(state: CareerState, run: RunSummary, rank: number = rankLevel(state.xp)): RunReport {
   const rankBefore = rankLevel(state.xp)
   const xp = xpForRun(run)
-  const board = generateBoard(state.boardSeed, rank)
+  const board = [generateObjective(state.boardSeed, rank)]
   const accepted = state.activeData && state.activeData.id === state.activeContract ? state.activeData : board.find(contract => contract.id === state.activeContract)
   let contractReport: RunReport['contract']
   let contractCredits = 0
@@ -82,10 +82,11 @@ export function applyRun(state: CareerState, run: RunSummary, rank: number = ran
       contractCredits = accepted.reward.credits
       contractXp = accepted.reward.xp
       contractsDone += 1
-      boardSeed += 1 // novo quadro depois de concluir
+      boardSeed += 1 // novo objetivo depois de cumprir
+      activeContract = ''
+      activeData = null
     }
-    activeContract = '' // o contrato vale uma corrida, dê certo ou não
-    activeData = null
+    // objetivo não cumprido continua valendo na próxima corrida
   }
   const cityBest = { ...state.cityBest }
   if (!run.unranked) cityBest[run.city] = Math.max(cityBest[run.city] ?? 0, Math.floor(run.distance))

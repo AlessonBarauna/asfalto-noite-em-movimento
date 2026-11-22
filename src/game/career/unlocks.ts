@@ -15,7 +15,7 @@ export const UNLOCKS: readonly UnlockEntry[] = [
   { id: 'nitro', kind: 'feature', label: 'Nitro', rank: 2, blurb: 'Impulso curto com a tecla F.' },
   // modos de jogo
   { id: 'mode-infinito', kind: 'mode', label: 'Corrida infinita', rank: 1, blurb: 'Dirija até onde conseguir.' },
-  { id: 'mode-contratos', kind: 'mode', label: 'Contratos de madrugada', rank: 3, blurb: 'Cargas com regras e pagamento melhor.' },
+  { id: 'mode-contratos', kind: 'mode', label: 'Objetivos da corrida', rank: 3, blurb: 'Uma meta por corrida que paga créditos e XP.' },
   // cidades
   { id: 'city-cidade', kind: 'city', label: 'Metrópole', rank: 1, blurb: 'Avenida molhada, neon e chuva.' },
   { id: 'city-serra', kind: 'city', label: 'Serra', rank: 4, blurb: 'Curvas, pinheiros e neblina.' },

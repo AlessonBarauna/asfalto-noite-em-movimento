@@ -8,12 +8,12 @@ export type Rank = { level: number; name: string; xp: number; blurb: string }
 export const RANKS: readonly Rank[] = [
   { level: 1, name: 'Novato', xp: 0, blurb: 'Primeira noite na estrada.' },
   { level: 2, name: 'Estradeiro', xp: 250, blurb: 'Já conhece o asfalto e começa a mexer no carro.' },
-  { level: 3, name: 'Pé de Chumbo', xp: 700, blurb: 'Aceita contratos e leva cargas de verdade.' },
+  { level: 3, name: 'Pé de Chumbo', xp: 700, blurb: 'Ganha um objetivo a cada corrida.' },
   { level: 4, name: 'Madrugueiro', xp: 1500, blurb: 'A serra deixou de assustar.' },
   { level: 5, name: 'Piloto de Rua', xp: 2800, blurb: 'Preparação pesada e carros esportivos.' },
   { level: 6, name: 'Cometa', xp: 4800, blurb: 'Cargas urgentes e utilitários.' },
   { level: 7, name: 'Fantasma', xp: 7800, blurb: 'O deserto é todo seu.' },
-  { level: 8, name: 'Relâmpago', xp: 12000, blurb: 'Contratos de alto risco.' },
+  { level: 8, name: 'Relâmpago', xp: 12000, blurb: 'Objetivos mais difíceis.' },
   { level: 9, name: 'Mestre da Noite', xp: 18000, blurb: 'Poucos chegam até aqui.' },
   { level: 10, name: 'Lenda do Asfalto', xp: 27000, blurb: 'O topo. Agora é só somar estrelas.' },
 ]
