@@ -268,3 +268,4 @@ body.is-driving .touch{z-index:6}
   .screen-modal[data-screen="garage"] .garage-wallet{margin-top:6px;padding:5px 10px}
   .garage-section-title{margin:10px 0 5px}
 }
+.contract-chip:not(.is-on){display:none!important}

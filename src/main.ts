@@ -53,6 +53,12 @@ async function boot(): Promise<void> {
     },
     setSensitivity: value => { save.update({ sensitivity: value }); input.sensitivity = save.data.sensitivity; ui.setSensitivity(save.data.sensitivity) },
     openLeaderboard: () => { ui.showLeaderboard(save.data.leaderboard) },
+    toggleSound: () => {
+      save.update({ muted: !save.data.muted })
+      applySettings()
+      ui.setSound(!save.data.muted)
+      if (!save.data.muted) audio.unlock()
+    },
     openPowers: () => ui.showPowers(save.data.powerLevels, save.data.credits),
     purchasePower: id => {
       const result = buyPowerUpgrade(save.data.credits, save.data.powerLevels, id)
@@ -267,6 +273,7 @@ async function boot(): Promise<void> {
     ui.setDestination(save.data.city)
     refreshContractChip()
     ui.setSensitivity(save.data.sensitivity)
+    ui.setSound(!save.data.muted)
     ui.setDistanceStats(save.data.bestDistance, save.data.totalDistance)
     ui.setCareer(save.data.career.xp)
   }
