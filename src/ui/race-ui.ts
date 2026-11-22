@@ -5,7 +5,7 @@ import { BRAZILIAN_TRAFFIC_MODELS } from '../game/traffic-vehicles'
 import { SUPERCAR } from '../game/supercar'
 import { POWERS, POWER_IDS, MAX_POWER_LEVEL, powerDuration, upgradeCost, type PowerId, type PowerLevels } from '../game/powers'
 import { controlPrefs, requestTiltPermission, PAD_LABELS, type PadId, type ControlScheme } from './controls-prefs'
-import { describeObjective, rankStatus, nextUnlocks, requiredRank, vehicleUnlockId, STAGES, COUNTRIES, stageRank, countryTicket, cityTicket, cityById, countryOfCity, type RunReport, type WorldState } from '../game/career'
+import { RANKS, describeObjective, rankStatus, nextUnlocks, requiredRank, vehicleUnlockId, STAGES, COUNTRIES, stageRank, countryTicket, cityTicket, cityById, countryOfCity, type RunReport, type WorldState } from '../game/career'
 
 export type RaceUiState = {
   score: number
@@ -186,7 +186,13 @@ export class RaceUI {
     rows.push(`<div class="rc-row"><span>XP DA CORRIDA</span><b>+${(report.xp.total + report.contractXp).toLocaleString('pt-BR')}</b></div>`)
     if (report.contract) {
       const ok = report.contract.outcome.completed
-      rows.push(`<div class="rc-row ${ok ? 'is-good' : 'is-bad'}"><span>OBJETIVO · ${describeObjective(report.contract.contract).toUpperCase()}</span><b>${ok ? '+' + report.contractCredits.toLocaleString('pt-BR') + ' CR' : 'AINDA NÃO'}</b></div>`)
+      rows.push(`<div class="rc-row ${ok ? 'is-good' : 'is-bad'}"><span>OBJETIVO · ${describeObjective(report.contract.contract).toUpperCase()}</span><b>${ok ? '+' + report.contractCredits.toLocaleString('pt-BR') + ' CR' : 'CONTINUA VALENDO'}</b></div>`)
+    }
+    if (report.rankAfter === report.rankBefore) {
+      const st = rankStatus(report.career.xp)
+      const next = RANKS.find(rank => rank.xp > st.xp)
+      const label = next ? `FALTAM ${st.xpToNext.toLocaleString('pt-BR')} XP PARA ${next.name.toUpperCase()}` : 'PRÓXIMA ESTRELA ★ · FALTAM ' + st.xpToNext.toLocaleString('pt-BR') + ' XP'
+      rows.push(`<div class="rc-prog"><span>${label}</span><i><u style="transform:scaleX(${Math.max(0, Math.min(1, st.progress)).toFixed(3)})"></u></i></div>`)
     }
     if (report.rankAfter > report.rankBefore) {
       const status = rankStatus(report.career.xp)

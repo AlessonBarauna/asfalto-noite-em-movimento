@@ -269,3 +269,24 @@ body.is-driving .touch{z-index:6}
   .garage-section-title{margin:10px 0 5px}
 }
 .contract-chip:not(.is-on){display:none!important}
+
+.rc-prog{display:flex;flex-direction:column;gap:5px;padding:7px 10px;background:#ffffff0a;border-left:2px solid #ffb36e;font-size:9px;letter-spacing:.14em;color:#b9c5ca}
+.rc-prog i{display:block;height:4px;background:#2a3640;overflow:hidden}
+.rc-prog u{display:block;height:100%;background:linear-gradient(90deg,#ff6a35,#ffc56e);transform-origin:left;transition:transform .6s ease-out}
+
+/* Celular deitado: resultado em duas colunas (placar à esquerda, carreira à direita) para tudo caber. */
+@media (max-height:520px) and (orientation:landscape){
+  .screen-modal[data-screen="results"] .modal{width:min(780px,calc(100vw - 40px));padding:12px 22px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);column-gap:22px;align-content:start}
+  .screen-modal[data-screen="results"] .modal>*{grid-column:1}
+  .screen-modal[data-screen="results"] .eyebrow{grid-row:1;text-align:left}
+  .screen-modal[data-screen="results"] h2{grid-row:2;text-align:left;font-size:30px;margin:0}
+  .screen-modal[data-screen="results"] .record-badge{grid-row:3;text-align:left;font-size:9px}
+  .screen-modal[data-screen="results"] .result-caption{grid-row:4;text-align:left}
+  .screen-modal[data-screen="results"] .result-score{grid-row:5;text-align:left;font-size:46px;margin:0}
+  .screen-modal[data-screen="results"] .result-grid{grid-row:6;justify-content:flex-start;margin:6px 0 0}
+  .screen-modal[data-screen="results"] .payout-panel{grid-column:2;grid-row:1 / span 2;margin:0;max-width:none;padding:8px 12px}
+  .screen-modal[data-screen="results"] .result-career{grid-column:2;grid-row:3 / span 3;margin:6px 0 0}
+  .screen-modal[data-screen="results"] .result-note{grid-column:2;grid-row:6;margin:0}
+  .screen-modal[data-screen="results"] .modal-menu{grid-column:1 / -1;grid-row:7;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
+  .screen-modal[data-screen="results"] .modal-menu .game-btn{min-height:36px;padding:8px 10px}
+}
