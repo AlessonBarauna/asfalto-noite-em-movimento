@@ -8,7 +8,7 @@ import { preloadSupercar } from './game/supercar'
 import type { ScenarioId } from './game/scenarios'
 import { RaceGame, type RaceResult } from './game/race-game'
 import { POWERS, buyPowerUpgrade } from './game/powers'
-import { applyRun, contractLive, deliverContract, describeObjective, generateObjective, isUnlocked, buyCity, buyCountry, cityById, cityMultiplier, countryById, countryOfCity, rankLevel, rankLabel, requiredRank, vehicleUnlockId, xpForRun, type Contract, type RunSummary } from './game/career'
+import { cityDifficulty, applyRun, contractLive, deliverContract, describeObjective, generateObjective, isUnlocked, buyCity, buyCountry, cityById, cityMultiplier, countryById, countryOfCity, rankLevel, rankLabel, requiredRank, vehicleUnlockId, xpForRun, type Contract, type RunSummary } from './game/career'
 import { calculateRacePayout, purchaseVehicle as buyVehicle, purchasePaint as buyPaint, purchaseWheels as buyWheels, purchaseTint as buyTint, purchaseSpoiler as buySpoiler, purchaseSuspension as buySuspension, purchaseExhaust as buyExhaust, purchaseHeadlights as buyHeadlights } from './game/economy'
 import { tuning } from './game/tuning'
 import { TouchControls } from './ui/touch'
@@ -253,7 +253,7 @@ async function boot(): Promise<void> {
   function bankProgress(distance: number, nearMisses: number): number {
     const extra = game?.bonus ?? { distance: 0, nearMisses: 0 }
     const base = calculateRacePayout(distance, nearMisses).credits + calculateRacePayout(extra.distance, extra.nearMisses).credits
-    const earned = Math.floor(base * cityMultiplier(game?.city ?? 'cidade').credits)
+    const earned = Math.floor(base * cityMultiplier(game?.city ?? 'cidade').credits * cityDifficulty(save.data.city))
     const credits = Math.max(0, earned - bankedCredits)
     const meters = Math.max(0, distance - bankedDistance)
     if (credits > 0 || meters > 0) {
@@ -295,7 +295,7 @@ async function boot(): Promise<void> {
         ui.toast(`O OBJETIVO PEDE ${(active.cityName ?? THEME_LABEL[active.city] ?? active.city).toUpperCase()} · TROQUE O DESTINO NO MAPA`)
       } else runContract = active
     }
-    game.setTrafficBoost(runContract?.trafficBoost ?? 1)
+    game.setTrafficBoost((runContract?.trafficBoost ?? 1) * cityDifficulty(save.data.city))
     lastLevel = 1
     audio.unlock()
     game.start()

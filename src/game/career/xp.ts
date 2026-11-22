@@ -1,3 +1,4 @@
+import { cityDifficulty } from './difficulty'
 /** Regras de XP: o que cada corrida rende para a patente. Puras, para testar sem o jogo rodando. */
 export type RunSummary = {
   distance: number
@@ -37,6 +38,6 @@ export function xpForRun(run: RunSummary): XpBreakdown {
   const jumps = Math.floor(safe(run.carsJumped)) * 8
   const flawless = safe(run.hits) === 0 ? Math.floor(km * 40) : 0
   const base = distance + nearMisses + jumps + flawless
-  const total = Math.floor(base * cityMultiplier(run.city).xp)
+  const total = Math.floor(base * cityMultiplier(run.city).xp * (run.cityId ? cityDifficulty(run.cityId) : 1))
   return { total, distance, nearMisses, jumps, flawless, city: total - base }
 }
