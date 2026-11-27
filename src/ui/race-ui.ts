@@ -1,3 +1,4 @@
+import { icon } from './icons'
 import copy from '../i18n/pt-BR.json'
 import type { PlayerVehicleId, ScoreEntry } from '../engine/save'
 import { PAINT_OPTIONS, VEHICLE_PRICES, WHEEL_OPTIONS, TINT_OPTIONS, SPOILER_OPTIONS, SUSPENSION_OPTIONS, EXHAUST_OPTIONS, HEADLIGHT_OPTIONS } from '../game/economy'
@@ -103,6 +104,13 @@ export class RaceUI {
     this.set('.hud-score-value', state.score.toLocaleString('pt-BR'))
     this.set('.hud-distance-value', `${(state.distance / 1000).toFixed(2)} ${copy['unit.km']}`)
     this.set('.hud-speed-value', String(Math.max(0, Math.round(state.speedKmh))))
+    const gauge = this.root.querySelector<HTMLElement>('.gauge')
+    if (gauge) {
+      const fill = 1 - Math.exp(-Math.max(0, state.speedKmh) / 320)
+      const arc = gauge.querySelector<SVGPathElement>('.gauge-fill')
+      if (arc) arc.style.strokeDasharray = `${(fill * 100).toFixed(1)} 100`
+      gauge.classList.toggle('is-fast', state.speedKmh > 260)
+    }
     const damage = this.root.querySelector('.damage-row')
     if (damage && damage.childElementCount !== 3) damage.innerHTML = '<i class="damage"></i><i class="damage"></i><i class="damage"></i>'
     this.root.querySelectorAll<HTMLElement>('.damage').forEach((el, i) => el.classList.toggle('is-empty', i >= state.lives))
@@ -492,7 +500,7 @@ export class RaceUI {
         if (!owned) {
           const price = countryTicket(country.id)
           const disabled = !open || credits < price
-          return `<div class="wc-card is-closed">${head}<button class="wc-buy" data-world-buy-country="${country.id}" ${open ? '' : 'disabled'} ${disabled && open ? 'data-poor="1"' : ''}>${open ? `PASSAGEM · ${fmt(price)} CR` : `🔒 PATENTE ${stageRank(stage.id)}`}</button></div>`
+          return `<div class="wc-card is-closed">${head}<button class="wc-buy" data-world-buy-country="${country.id}" ${open ? '' : 'disabled'} ${disabled && open ? 'data-poor="1"' : ''}>${open ? `PASSAGEM · ${fmt(price)} CR` : `${icon('lock', 13)} PATENTE ${stageRank(stage.id)}`}</button></div>`
         }
         const cities = country.cities.map(city => {
           if (world.cities.includes(city.id)) return `<button class="wc-city ${city.id === currentCity ? 'is-current' : ''}" data-world-city="${city.id}">${city.name}</button>`
@@ -500,7 +508,7 @@ export class RaceUI {
         }).join('')
         return `<div class="wc-card is-open">${head}<div class="wc-cities">${cities}</div></div>`
       }).join('')
-      return `<section class="ws-stage ${open ? '' : 'is-locked'}"><h3><span>FASE ${stage.id}</span> ${stage.name}${open ? '' : ` <em>🔒 PATENTE ${stageRank(stage.id)}</em>`}</h3><div class="ws-grid">${countries}</div></section>`
+      return `<section class="ws-stage ${open ? '' : 'is-locked'}"><h3><span>FASE ${stage.id}</span> ${stage.name}${open ? '' : ` <em>${icon('lock', 12)} PATENTE ${stageRank(stage.id)}</em>`}</h3><div class="ws-grid">${countries}</div></section>`
     }).join('')
     this.set('.world-credits', fmt(credits))
     const list = this.root.querySelector<HTMLElement>('.world-list')
@@ -513,7 +521,7 @@ export class RaceUI {
     this.root.querySelectorAll<HTMLElement>('.sound-toggle').forEach(el => {
       const mark = el.querySelector('span')
       el.firstChild!.textContent = on ? 'SOM: LIGADO ' : 'SOM: DESLIGADO '
-      if (mark) mark.textContent = on ? '♪' : '✕'
+      if (mark) mark.innerHTML = icon(on ? 'volOn' : 'volOff')
       el.classList.toggle('is-off', !on)
     })
   }
@@ -560,40 +568,40 @@ export class RaceUI {
     <div class="contract-chip"><span>OBJETIVO</span><b>—</b></div>
     <button class="dest-btn" data-action="world"><span>DESTINO</span><b class="dest-name">🇧🇷 São Paulo</b><small class="dest-sub">Brasil · ABRIR MAPA</small></button>
     <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
-    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>↗</span></button><button class="game-btn" data-action="garage">GARAGEM <span>↗</span></button><button class="game-btn" data-action="powers">PODERES <span>↗</span></button><button class="game-btn" data-action="controls">CONTROLES <span>↗</span></button><button class="game-btn sound-toggle" data-action="sound">SOM: LIGADO <span>♪</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>↗</span></button></div>
+    <div class="title-actions"><button class="game-btn primary" data-action="play">${copy['menu.play']} <span>${icon('play')}</span></button><button class="game-btn" data-action="garage">GARAGEM <span>${icon('garage')}</span></button><button class="game-btn" data-action="powers">PODERES <span>${icon('bolt')}</span></button><button class="game-btn" data-action="controls">CONTROLES <span>${icon('pad')}</span></button><button class="game-btn sound-toggle" data-action="sound">SOM: LIGADO <span>${icon('volOn')}</span></button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']} <span>${icon('trophy')}</span></button></div>
   </div>
   <div class="title-wallet">SALDO <b><span class="wallet-balance">0</span> CR</b></div><div class="title-best">RECORDE LOCAL <b class="title-best-value">0</b><span class="title-sub">MAIOR DISTÂNCIA <i class="title-dist-value">0 km</i></span><span class="title-sub">TOTAL RODADO <i class="title-total-value">0 km</i></span></div>
 </section>
 <section class="screen screen-hud" data-screen="hud">
   <div class="hud-top"><div class="hud-block"><div class="hud-score-label">${copy['hud.score']}</div><div class="hud-score-value">0</div><div class="hud-meta"><span class="hud-distance-value">0,00 KM</span><span class="hud-near-miss"></span></div></div>
-    <div class="hud-right"><div class="hud-block hud-speed"><div class="hud-speed-value">0<small>${copy['hud.speed']}</small></div><div class="hud-speed-label">${copy['hud.damage']}</div><div class="damage-row"><i class="damage"></i><i class="damage"></i><i class="damage"></i></div></div><button class="pause-btn" data-action="pause" aria-label="${copy['menu.pause']}">Ⅱ</button></div>
+    <div class="hud-right"><div class="hud-block hud-speed"><div class="gauge"><svg viewBox="0 0 120 120" aria-hidden="true"><path class="gauge-track" d="M 25.1 94.9 A 48 48 0 1 1 94.9 94.9" pathLength="100"/><path class="gauge-fill" d="M 25.1 94.9 A 48 48 0 1 1 94.9 94.9" pathLength="100"/></svg><div class="gauge-read"><div class="hud-speed-value">0</div><small>${copy['hud.speed']}</small></div></div><div class="hud-speed-label">${copy['hud.damage']}</div><div class="damage-row"><i class="damage"></i><i class="damage"></i><i class="damage"></i></div></div><button class="pause-btn" data-action="pause" aria-label="${copy['menu.pause']}">${icon('pause', 20)}</button></div>
   </div>
-  <div class="nitro-widget"><div class="nitro-label"><span>${copy['hud.nitro']}</span><span>F</span></div><div class="nitro-track"><i></i></div></div>
+  <div class="nitro-widget"><div class="nitro-label"><span>${icon('bolt', 14)} ${copy['hud.nitro']}</span><kbd>F</kbd></div><div class="nitro-track"><i></i></div></div>
   <div class="contract-widget"><div class="cw-top"><b></b><em></em></div><div class="cw-text"></div><span><i></i></span></div>
   <div class="power-widget"><b></b><span><i></i></span></div>
   <div class="center-notice"></div>
 </section>
-<section class="screen screen-modal" data-screen="pause"><button class="back-btn" data-action="resume">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · PAUSA</div><h2>${copy['pause.title']}</h2><p>${copy['pause.subtitle']}</p>
+<section class="screen screen-modal" data-screen="pause"><button class="back-btn" data-action="resume">${icon('back', 14)} VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · PAUSA</div><h2>${copy['pause.title']}</h2><p>${copy['pause.subtitle']}</p>
   <label class="sens-row"><span>SENSIBILIDADE DA DIREÇÃO <b class="sens-value">1×</b></span><input class="sens-slider" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Sensibilidade da direção" /></label>
   <div class="modal-menu"><button class="game-btn primary" data-action="resume">${copy['menu.resume']}</button><button class="game-btn" data-action="restart">${copy['menu.restart']}</button><button class="game-btn" data-action="garage">GARAGEM</button><button class="game-btn" data-action="powers">PODERES</button><button class="game-btn" data-action="controls">CONTROLES</button><button class="game-btn sound-toggle" data-action="sound">SOM: LIGADO</button><button class="game-btn" data-action="leaderboard">${copy['menu.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
-<section class="screen screen-modal" data-screen="results"><button class="back-btn" data-action="title">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · RESULTADO</div><h2>${copy['results.title']}</h2><div class="record-badge">${copy['results.best']}</div>
+<section class="screen screen-modal" data-screen="results"><button class="back-btn" data-action="title">${icon('back', 14)} VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · RESULTADO</div><h2>${copy['results.title']}</h2><div class="record-badge">${copy['results.best']}</div>
   <div class="result-caption">${copy['results.score']}</div><div class="result-score">0</div><div class="result-grid"><div>${copy['results.distance']}<b class="result-distance">0,00 KM</b></div><div>${copy['results.nearMiss']}<b class="result-near-misses">0</b></div></div><div class="payout-panel"><span>RECOMPENSA DA CORRIDA</span><strong class="result-credits">+0 CR</strong><small>SALDO: <b class="result-balance">0</b> CR</small></div><div class="result-career"></div><div class="modal-tag result-note"></div>
   <div class="modal-menu"><button class="game-btn primary" data-action="restart">${copy['results.retry']}</button><button class="game-btn" data-action="leaderboard">${copy['results.leaderboard']}</button><button class="game-btn" data-action="title">${copy['menu.title']}</button></div>
 </div></section>
-<section class="screen screen-modal screen-powers" data-screen="powers"><button class="back-btn" data-action="powers-back">← VOLTAR</button><div class="modal powers-modal"><div class="eyebrow">ASFALTO · OFICINA</div><h2>EVOLUA SEUS PODERES</h2><p>Pegue orbes na estrada para ativar. Cada nível aumenta o tempo que o poder dura. SALDO <b><span class="powers-credits">0</span> CR</b></p><div class="powers-list"></div></div></section>
-<section class="screen screen-modal" data-screen="controls"><button class="back-btn" data-action="controls-back">← VOLTAR</button><div class="modal controls-modal"><div class="eyebrow">ASFALTO · CONTROLES</div><h2>COMO VOCÊ DIRIGE</h2><p>Vale para o celular. No computador continuam as setas, A/D, W/S, espaço e F.</p>
-  <div class="scheme-row"><button class="scheme-opt" data-scheme="touch" aria-pressed="false"><b>TOQUE</b><small>Arraste o dedo na tela para desviar</small></button><button class="scheme-opt" data-scheme="buttons" aria-pressed="false"><b>BOTÕES</b><small>Setas ◀ ▶ na tela</small></button><button class="scheme-opt" data-scheme="tilt" aria-pressed="false"><b>INCLINAR</b><small>Incline o celular para os lados</small></button></div>
+<section class="screen screen-modal screen-powers" data-screen="powers"><button class="back-btn" data-action="powers-back">${icon('back', 14)} VOLTAR</button><div class="modal powers-modal"><div class="eyebrow">ASFALTO · OFICINA</div><h2>EVOLUA SEUS PODERES</h2><p>Pegue orbes na estrada para ativar. Cada nível aumenta o tempo que o poder dura. SALDO <b><span class="powers-credits">0</span> CR</b></p><div class="powers-list"></div></div></section>
+<section class="screen screen-modal" data-screen="controls"><button class="back-btn" data-action="controls-back">${icon('back', 14)} VOLTAR</button><div class="modal controls-modal"><div class="eyebrow">ASFALTO · CONTROLES</div><h2>COMO VOCÊ DIRIGE</h2><p>Vale para o celular. No computador continuam as setas, A/D, W/S, espaço e F.</p>
+  <div class="scheme-row"><button class="scheme-opt" data-scheme="touch" aria-pressed="false"><b>TOQUE</b><small>Arraste o dedo na tela para desviar</small></button><button class="scheme-opt" data-scheme="buttons" aria-pressed="false"><b>BOTÕES</b><small>Setas na tela</small></button><button class="scheme-opt" data-scheme="tilt" aria-pressed="false"><b>INCLINAR</b><small>Incline o celular para os lados</small></button></div>
   <label class="tilt-row is-hidden"><input type="checkbox" class="tilt-invert" /> <span>INVERTER O LADO DA INCLINAÇÃO</span></label><div class="tilt-status" aria-live="polite"></div>
   <div class="modal-menu"><button class="game-btn" data-action="layout">POSICIONAR BOTÕES</button><button class="game-btn primary" data-action="controls-back">PRONTO</button></div>
 </div></section>
 <section class="screen screen-layout" data-screen="layout"><div class="layout-bar"><b>ARRASTE CADA BOTÃO PARA ONDE QUISER</b><button class="game-btn" data-action="layout-reset">RESTAURAR</button><button class="game-btn primary" data-action="layout-done">CONCLUIR</button></div><div class="layout-stage"></div></section>
-<section class="screen screen-modal screen-world" data-screen="world"><button class="back-btn" data-action="world-back">← VOLTAR</button><div class="world-wrap"><header class="world-head"><div class="eyebrow">ASFALTO · MAPA-MÚNDI</div><h2>Para onde vai a madrugada?</h2><p>A patente libera a região; a passagem libera o país. SALDO <b><span class="world-credits">0</span> CR</b></p></header><div class="world-list"></div></div></section>
-<section class="screen screen-modal" data-screen="garage"><button class="back-btn" data-action="garage-back">← VOLTAR</button><div class="garage-hint">ARRASTE PARA GIRAR O CARRO · RODA DO MOUSE PARA ZOOM · DUPLO CLIQUE RESTAURA</div><div class="modal garage-modal"><div class="eyebrow">ASFALTO · GARAGEM</div><h2>ESCOLHA SEU CARRO</h2><p>Compre novos veículos com os créditos conquistados nas corridas. O Gol G5 continua sendo seu carro inicial.</p><div class="garage-wallet">SALDO DISPONÍVEL: <strong class="garage-balance"></strong> CR</div><div class="garage-notice" aria-live="polite"></div><h3 class="garage-section-title">PINTURA</h3><div class="paint-grid"></div><h3 class="garage-section-title">RODAS E AROS</h3><div class="wheel-grid accessory-grid"></div><h3 class="garage-section-title">INSULFILM</h3><div class="tint-grid accessory-grid"></div><h3 class="garage-section-title">AEROFÓLIO</h3><div class="spoiler-grid accessory-grid"></div><h3 class="garage-section-title">SUSPENSÃO</h3><div class="suspension-grid accessory-grid"></div><h3 class="garage-section-title">ESCAPAMENTO</h3><div class="exhaust-grid accessory-grid"></div><h3 class="garage-section-title">FARÓIS</h3><div class="headlight-grid accessory-grid"></div><h3 class="garage-section-title">VEÍCULOS</h3><div class="garage-grid"></div><div class="modal-menu"><button class="game-btn" data-action="garage-back">VOLTAR</button></div></div></section>
-<section class="screen screen-modal" data-screen="leaderboard"><button class="back-btn" data-action="back">← VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · RECORDES</div><h2>${copy['leaderboard.title']}</h2><div class="board-source">${copy['leaderboard.local']}</div><ol class="score-list"><li class="score-empty">${copy['leaderboard.empty']}</li></ol>
+<section class="screen screen-modal screen-world" data-screen="world"><button class="back-btn" data-action="world-back">${icon('back', 14)} VOLTAR</button><div class="world-wrap"><header class="world-head"><div class="eyebrow">ASFALTO · MAPA-MÚNDI</div><h2>Para onde vai a madrugada?</h2><p>A patente libera a região; a passagem libera o país. SALDO <b><span class="world-credits">0</span> CR</b></p></header><div class="world-list"></div></div></section>
+<section class="screen screen-modal" data-screen="garage"><button class="back-btn" data-action="garage-back">${icon('back', 14)} VOLTAR</button><div class="garage-hint">ARRASTE PARA GIRAR O CARRO · RODA DO MOUSE PARA ZOOM · DUPLO CLIQUE RESTAURA</div><div class="modal garage-modal"><div class="eyebrow">ASFALTO · GARAGEM</div><h2>ESCOLHA SEU CARRO</h2><p>Compre novos veículos com os créditos conquistados nas corridas. O Gol G5 continua sendo seu carro inicial.</p><div class="garage-wallet">SALDO DISPONÍVEL: <strong class="garage-balance"></strong> CR</div><div class="garage-notice" aria-live="polite"></div><h3 class="garage-section-title">PINTURA</h3><div class="paint-grid"></div><h3 class="garage-section-title">RODAS E AROS</h3><div class="wheel-grid accessory-grid"></div><h3 class="garage-section-title">INSULFILM</h3><div class="tint-grid accessory-grid"></div><h3 class="garage-section-title">AEROFÓLIO</h3><div class="spoiler-grid accessory-grid"></div><h3 class="garage-section-title">SUSPENSÃO</h3><div class="suspension-grid accessory-grid"></div><h3 class="garage-section-title">ESCAPAMENTO</h3><div class="exhaust-grid accessory-grid"></div><h3 class="garage-section-title">FARÓIS</h3><div class="headlight-grid accessory-grid"></div><h3 class="garage-section-title">VEÍCULOS</h3><div class="garage-grid"></div><div class="modal-menu"><button class="game-btn" data-action="garage-back">VOLTAR</button></div></div></section>
+<section class="screen screen-modal" data-screen="leaderboard"><button class="back-btn" data-action="back">${icon('back', 14)} VOLTAR</button><div class="modal"><div class="eyebrow">ASFALTO · RECORDES</div><h2>${copy['leaderboard.title']}</h2><div class="board-source">${copy['leaderboard.local']}</div><ol class="score-list"><li class="score-empty">${copy['leaderboard.empty']}</li></ol>
   <div class="modal-menu"><button class="game-btn" data-action="back">${copy['menu.back']}</button></div>
 </div></section>
-<div class="touch" aria-hidden="true"><div class="touch-stick"><i></i></div><div class="touch-actions"><button class="touch-btn" data-touch="left">◀</button><button class="touch-btn" data-touch="right">▶</button><button class="touch-btn" data-touch="jump">PULAR</button><button class="touch-btn" data-touch="sprint">${copy['touch.accelerate']}</button><button class="touch-btn" data-touch="dash">${copy['touch.nitro']}</button></div></div>
+<div class="touch" aria-hidden="true"><div class="touch-stick"><i></i></div><div class="touch-actions"><button class="touch-btn" data-touch="left" aria-label="Esquerda">${icon('left', 30)}</button><button class="touch-btn" data-touch="right" aria-label="Direita">${icon('right', 30)}</button><button class="touch-btn" data-touch="jump">PULAR</button><button class="touch-btn" data-touch="sprint">${copy['touch.accelerate']}</button><button class="touch-btn" data-touch="dash">${copy['touch.nitro']}</button></div></div>
 `
   }
 }
