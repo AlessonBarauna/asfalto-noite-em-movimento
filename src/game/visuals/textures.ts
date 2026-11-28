@@ -308,3 +308,112 @@ export function shopfrontTexture(seed: number, tones: readonly string[]): THREE.
   }
   return finish(c, true, false)
 }
+
+/**
+ * Fachada de torre moderna (cortina de vidro): painéis contínuos com reflexo do céu, esquadrias finas,
+ * faixas de laje e andares inteiros acesos em trechos (escritórios), em vez de janelas soltas.
+ */
+export function glassTowerStyle(seed: number, tint: string, tones: readonly string[], litChance: number): FacadeStyle {
+  const cols = 8
+  const rows = 12
+  const cw = 48
+  const ch = 54
+  const w = cols * cw
+  const h = rows * ch
+  const rnd = seeded(seed)
+  const [mc, mg] = canvas(w, h)
+  const [ec, eg] = canvas(w, h)
+  const base = mg.createLinearGradient(0, 0, w, h)
+  base.addColorStop(0, tint)
+  base.addColorStop(0.5, '#0b141c')
+  base.addColorStop(1, tint)
+  mg.fillStyle = base
+  mg.fillRect(0, 0, w, h)
+  eg.fillStyle = '#000'
+  eg.fillRect(0, 0, w, h)
+  // reflexos diagonais do céu e das luzes da cidade
+  for (let i = 0; i < 26; i += 1) {
+    const x = rnd() * w
+    const gr = mg.createLinearGradient(x, 0, x + 60, h)
+    gr.addColorStop(0, 'rgba(160,210,255,0)')
+    gr.addColorStop(0.5, `rgba(160,210,255,${0.03 + rnd() * 0.07})`)
+    gr.addColorStop(1, 'rgba(160,210,255,0)')
+    mg.fillStyle = gr
+    mg.fillRect(x, 0, 18 + rnd() * 40, h)
+  }
+  for (let r = 0; r < rows; r += 1) {
+    mg.fillStyle = 'rgba(2,6,10,0.85)'
+    mg.fillRect(0, r * ch, w, 5)
+    mg.fillStyle = 'rgba(120,150,170,0.18)'
+    mg.fillRect(0, r * ch + 5, w, 1.5)
+    // andar aceso em trechos contínuos
+    let col = 0
+    while (col < cols) {
+      const run = 1 + Math.floor(rnd() * 4)
+      if (rnd() < litChance) {
+        const tone = tones[Math.floor(rnd() * tones.length)]
+        eg.globalAlpha = 0.55 + rnd() * 0.4
+        eg.fillStyle = tone
+        eg.fillRect(col * cw + 1, r * ch + 9, Math.min(run, cols - col) * cw - 2, ch - 15)
+        // divisórias internas e luminárias lineares
+        eg.globalAlpha = 0.45
+        eg.fillStyle = '#000'
+        for (let k = 1; k < run; k += 1) eg.fillRect(col * cw + k * cw - 1, r * ch + 9, 2, ch - 15)
+        eg.globalAlpha = 1
+        eg.fillStyle = 'rgba(255,255,255,0.35)'
+        eg.fillRect(col * cw + 6, r * ch + 14, Math.min(run, cols - col) * cw - 12, 2)
+      }
+      col += run
+    }
+  }
+  // esquadrias verticais
+  mg.fillStyle = 'rgba(2,6,10,0.8)'
+  for (let c = 0; c <= cols; c += 1) mg.fillRect(c * cw - 1, 0, 2, h)
+  eg.fillStyle = '#000'
+  for (let c = 0; c <= cols; c += 1) eg.fillRect(c * cw - 1, 0, 2, h)
+  return { map: finish(mc, true), emissive: finish(ec, true) }
+}
+
+/** Tela de LED de painel publicitário: faixas de cor, círculos e grade de pixels (sem textos nem marcas). */
+export function ledScreenTexture(seed: number): THREE.CanvasTexture {
+  const w = 512
+  const h = 256
+  const rnd = seeded(seed)
+  const [c, g] = canvas(w, h)
+  const palettes = [['#ff3d81', '#ffb347', '#2b0a3d'], ['#2cd6ff', '#7a5cff', '#06122b'], ['#46ffb0', '#ffe14a', '#04241a'], ['#ff5a3c', '#ffd1a1', '#2a0a06']]
+  const [a, b, bg] = palettes[Math.floor(rnd() * palettes.length)]
+  const gr = g.createLinearGradient(0, 0, w, h)
+  gr.addColorStop(0, bg)
+  gr.addColorStop(1, '#000')
+  g.fillStyle = gr
+  g.fillRect(0, 0, w, h)
+  for (let i = 0; i < 7; i += 1) {
+    const y = rnd() * h
+    const grad = g.createLinearGradient(0, y, w, y + 40)
+    grad.addColorStop(0, 'rgba(0,0,0,0)')
+    grad.addColorStop(0.5, rnd() < 0.5 ? a : b)
+    grad.addColorStop(1, 'rgba(0,0,0,0)')
+    g.globalAlpha = 0.55 + rnd() * 0.4
+    g.fillStyle = grad
+    g.fillRect(0, y, w, 8 + rnd() * 34)
+  }
+  g.globalAlpha = 1
+  g.fillStyle = a
+  g.beginPath()
+  g.arc(w * (0.2 + rnd() * 0.6), h * 0.5, 54 + rnd() * 30, 0, Math.PI * 2)
+  g.fill()
+  g.fillStyle = b
+  for (let i = 0; i < 4; i += 1) {
+    g.beginPath()
+    g.moveTo(20 + i * 40, h - 20)
+    g.lineTo(60 + i * 40, h * 0.55)
+    g.lineTo(90 + i * 40, h - 20)
+    g.fill()
+  }
+  g.fillStyle = 'rgba(0,0,0,0.38)'
+  for (let x = 0; x < w; x += 4) g.fillRect(x, 0, 1, h)
+  for (let y = 0; y < h; y += 4) g.fillRect(0, y, w, 1)
+  const tex = finish(c, true)
+  tex.wrapS = THREE.RepeatWrapping
+  return tex
+}

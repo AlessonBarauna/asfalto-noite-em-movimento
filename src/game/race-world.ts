@@ -10,7 +10,7 @@ import { boulevard, dunes, elevated, hillside, lanterns, tropical, type StreetCt
 import { cobbleTexture, rippleTexture } from './visuals/street-textures'
 import { LANDMARK_SCALE, buildLandmark, disposeLandmarkGeometry, landmarkMaterials } from './landmarks'
 import { SCENARIOS, scenarioById, type Scenario, type ScenarioId } from './scenarios'
-import { asphaltTextures, facadeStyle, gantrySignTexture, glowTexture, neonTexture, pavementTexture, shopfrontTexture, seeded, streakTexture, type FacadeStyle } from './visuals/textures'
+import { asphaltTextures, facadeStyle, glassTowerStyle, ledScreenTexture, gantrySignTexture, glowTexture, neonTexture, pavementTexture, shopfrontTexture, seeded, streakTexture, type FacadeStyle } from './visuals/textures'
 
 const ROAD_LENGTH = 408
 const ROAD_HALF = RACE_CONFIG.roadHalfWidth
@@ -41,6 +41,8 @@ export class RaceWorld {
     facadeStyle(59, '#202a26', ['#d9f5ff', '#ffe0a8', '#a8f0d0'], 0.36),
   ]
   private readonly facadeMaterials: THREE.MeshStandardMaterial[]
+  private readonly glassMaterials: THREE.MeshStandardMaterial[]
+  private readonly ledScreens: Array<{ tex: THREE.CanvasTexture; speed: number }> = []
   private readonly roofMaterial = new THREE.MeshStandardMaterial({ color: '#171c21', roughness: 0.9, metalness: 0.1 })
   private readonly shopfronts = [1, 2, 3].map(n => shopfrontTexture(n * 13, ['#ffcf8a', '#ffe0b0', '#8fd8ff', '#ffb070']))
   private readonly random = seeded(186)
@@ -78,6 +80,14 @@ export class RaceWorld {
       color: '#ffffff', map: f.map, emissiveMap: f.emissive, emissive: '#ffffff', emissiveIntensity: 0.62, roughness: 0.62, metalness: 0.18,
     }))
 
+    this.glassMaterials = [
+      glassTowerStyle(71, '#16303f', ['#d8f1ff', '#fff1d0', '#bfe0ff'], 0.55),
+      glassTowerStyle(83, '#1a2c46', ['#e6f4ff', '#cfe3ff', '#ffe6b8'], 0.5),
+      glassTowerStyle(97, '#143838', ['#dffff4', '#fff4d6', '#c8f0ff'], 0.6),
+    ].map(f => new THREE.MeshStandardMaterial({
+      color: '#ffffff', map: f.map, emissiveMap: f.emissive, emissive: '#ffffff', emissiveIntensity: 0.85, roughness: 0.14, metalness: 0.78, envMapIntensity: 2.3,
+    }))
+
     this.hemi = new THREE.HemisphereLight('#7f9bc4', '#1c1410', 0.42)
     this.scene.add(this.hemi)
     this.moon = new THREE.DirectionalLight('#9fb8e8', 0.85)
@@ -96,6 +106,7 @@ export class RaceWorld {
     this.addSidewalks()
     this.addBuildings()
     this.addStreetLights()
+    this.addCrosswalks()
     this.target = this.common
     this.addRoad()
     this.addGantries()
@@ -415,6 +426,7 @@ export class RaceWorld {
       prop.root.position.z += deltaMeters
       if (prop.root.position.z > prop.wrapAt) prop.root.position.z -= prop.wrapBy
     }
+    for (const led of this.ledScreens) led.tex.offset.x = (this.clock * led.speed) % 1
     for (const apply of this.fields) apply(this.scroll)
     for (const apply of this.streetFields) apply(this.scroll)
     this.openViewCorridors()
@@ -526,7 +538,7 @@ export class RaceWorld {
     const asphalt = new THREE.Mesh(
       new THREE.PlaneGeometry(ROAD_HALF * 2, 1500),
       new THREE.MeshStandardMaterial({
-        map, roughnessMap: roughness, roughness: 1, metalness: 0.12, normalMap: normal, normalScale: new THREE.Vector2(0.55, 0.55), envMapIntensity: 1.6,
+        map, roughnessMap: roughness, roughness: 1, metalness: 0.26, normalMap: normal, normalScale: new THREE.Vector2(0.55, 0.55), envMapIntensity: 2.1,
       }),
     )
     asphalt.rotation.x = -Math.PI / 2
@@ -594,7 +606,10 @@ export class RaceWorld {
         const inset = random() * 2.4
         const x = side * (ROAD_HALF + 0.3 + SIDEWALK_W + 0.6 + inset + width * 0.5)
         const z = -24 - i * spacing + (random() - 0.5) * 1.2
-        const material = this.facadeMaterials[Math.floor(random() * this.facadeMaterials.length)]
+        const glassy = height > 30 && random() < 0.55
+        const material = glassy
+          ? this.glassMaterials[Math.floor(random() * this.glassMaterials.length)]
+          : this.facadeMaterials[Math.floor(random() * this.facadeMaterials.length)]
         const body = new THREE.Mesh(this.buildingGeometry(width, height, depth), [material, material, this.roofMaterial, this.roofMaterial, material, material])
         body.position.set(x, height * 0.5 - 0.06, 0)
         root.add(body)
@@ -635,6 +650,36 @@ export class RaceWorld {
         const awning = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, depth * 0.72), new THREE.MeshStandardMaterial({ color: neonColors[i % neonColors.length], roughness: 0.6, emissive: neonColors[i % neonColors.length], emissiveIntensity: 0.18 }))
         awning.position.set(faceX - side * 0.55, 3.4, 0)
         root.add(awning)
+        // Torres de vidro: coroa e arestas de LED; painéis de LED nos prédios mais altos.
+        if (glassy) {
+          const ledColor = neonColors[(i + (side === 1 ? 1 : 3)) % neonColors.length]
+          const ledMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(ledColor).multiplyScalar(1.5), toneMapped: false })
+          const rim = new THREE.Mesh(new THREE.BoxGeometry(width + 0.3, 0.32, depth + 0.3), ledMat)
+          rim.position.set(x, height - 0.1, 0)
+          root.add(rim)
+          for (const zEdge of [-1, 1]) {
+            const edge = new THREE.Mesh(new THREE.BoxGeometry(0.15, height * 0.9, 0.15), ledMat)
+            edge.position.set(faceX - side * 0.1, height * 0.5, zEdge * (depth * 0.5 + 0.05))
+            root.add(edge)
+          }
+        }
+        if (height > 28 && i % 4 === 2) {
+          const tex = ledScreenTexture(i * 17 + (side === 1 ? 5 : 0) + 3)
+          this.ledScreens.push({ tex, speed: 0.012 + random() * 0.02 })
+          const sy = 13 + random() * 9
+          const sz = (random() - 0.5) * 8
+          const frame = new THREE.Mesh(new THREE.BoxGeometry(0.4, 5.1, 9.6), new THREE.MeshStandardMaterial({ color: '#0d1115', roughness: 0.6, metalness: 0.5 }))
+          frame.position.set(faceX - side * 0.25, sy, sz)
+          root.add(frame)
+          const screen = new THREE.Mesh(new THREE.PlaneGeometry(9, 4.5), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, color: new THREE.Color('#ffffff').multiplyScalar(1.15) }))
+          screen.position.set(faceX - side * 0.47, sy, sz)
+          screen.rotation.y = side === 1 ? -Math.PI / 2 : Math.PI / 2
+          root.add(screen)
+          const glowPlane = new THREE.Mesh(new THREE.PlaneGeometry(20, 12), this.additive(neonColors[(i + 2) % neonColors.length], 0.16, this.glow))
+          glowPlane.position.set(faceX - side * 0.7, sy, sz)
+          glowPlane.rotation.y = screen.rotation.y
+          root.add(glowPlane)
+        }
         // vertical neon blade sign
         if (i % 3 === 1) {
           const color = neonColors[(i + (side === 1 ? 2 : 0)) % neonColors.length]
@@ -658,6 +703,45 @@ export class RaceWorld {
         this.target.add(root)
         this.props.push({ root, homeZ: z, wrapAt: 40, wrapBy: count * spacing })
       }
+    }
+  }
+
+  /** Faixas de pedestre com semáforo de LED a cada ~190 m, só no cenário de cidade. */
+  private addCrosswalks(): void {
+    const stripe = new THREE.MeshStandardMaterial({ color: '#e9eef0', emissive: '#9fb0b6', emissiveIntensity: 0.3, roughness: 0.5 })
+    const pole = new THREE.MeshStandardMaterial({ color: '#232b31', roughness: 0.5, metalness: 0.5 })
+    const green = new THREE.MeshBasicMaterial({ color: new THREE.Color('#3dff8a').multiplyScalar(1.6), toneMapped: false })
+    const count = 5
+    const spacing = 190
+    for (let i = 0; i < count; i += 1) {
+      const root = new THREE.Group()
+      for (let x = -ROAD_HALF + 1; x <= ROAD_HALF - 0.9; x += 1.1) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.012, 3.2), stripe)
+        bar.position.set(x, 0.006, 0)
+        root.add(bar)
+      }
+      const stop = new THREE.Mesh(new THREE.BoxGeometry(ROAD_HALF * 2 - 0.4, 0.012, 0.4), stripe)
+      stop.position.set(0, 0.006, 3)
+      root.add(stop)
+      for (const side of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 4.6, 8), pole)
+        post.position.set(side * (ROAD_HALF + 1.1), 2.3, 1.4)
+        root.add(post)
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.9, 0.3), pole)
+        head.position.set(side * (ROAD_HALF + 1.1), 4.5, 1.4)
+        root.add(head)
+        const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), green)
+        lamp.position.set(side * (ROAD_HALF + 1.1), 4.28, 1.58)
+        root.add(lamp)
+        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: '#3dff8a', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }))
+        halo.scale.setScalar(1.9)
+        halo.position.set(side * (ROAD_HALF + 1.1), 4.28, 1.7)
+        root.add(halo)
+      }
+      const z = -60 - i * spacing
+      root.position.set(0, 0, z)
+      this.target.add(root)
+      this.props.push({ root, homeZ: z, wrapAt: 40, wrapBy: count * spacing })
     }
   }
 
