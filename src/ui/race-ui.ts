@@ -224,7 +224,7 @@ export class RaceUI {
     this.set('.garage-balance', credits.toLocaleString('pt-BR'))
     const grid = this.root.querySelector<HTMLElement>('.garage-grid')
     if (grid) {
-      const premium = [...GLB_CAR_LIST.map(c => ({ id: c.id as PlayerVehicleId, label: c.label as string, utility: undefined as string | undefined, premium: c.type as string })), { id: SUPERCAR.id as PlayerVehicleId, label: SUPERCAR.label as string, utility: undefined as string | undefined, premium: 'ESPORTIVO' }]
+      const premium = [...[...GLB_CAR_LIST].sort((x, y) => x.price - y.price).map(c => ({ id: c.id as PlayerVehicleId, label: c.label as string, utility: undefined as string | undefined, premium: c.type as string })), { id: SUPERCAR.id as PlayerVehicleId, label: SUPERCAR.label as string, utility: undefined as string | undefined, premium: 'ESPORTIVO' }]
       grid.innerHTML = [...BRAZILIAN_TRAFFIC_MODELS, ...premium].map(model => {
         const active = model.id === selected
         const owned = unlocked.includes(model.id)
