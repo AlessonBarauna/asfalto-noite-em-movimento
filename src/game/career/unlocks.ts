@@ -1,3 +1,4 @@
+import { GLB_CAR_LIST } from '../glb-car-list'
 /**
  * Catálogo de tudo que o jogador destrava. Cada item exige uma patente mínima; comprar também
  * exige créditos (veja economy.ts). Para criar uma cidade, um modo ou um carro novo basta
@@ -30,8 +31,7 @@ export const UNLOCKS: readonly UnlockEntry[] = [
   { id: 'vehicle-onix', kind: 'vehicle', label: 'Onix', rank: 5, blurb: 'O mais vendido do país.' },
   { id: 'vehicle-saveiro', kind: 'vehicle', label: 'Saveiro', rank: 6, blurb: 'Picape leve de carga.' },
   { id: 'vehicle-fiorino', kind: 'vehicle', label: 'Fiorino', rank: 6, blurb: 'Furgão de entrega.' },
-  { id: 'vehicle-sedan', kind: 'vehicle', label: 'Sedan Executivo', rank: 7, blurb: 'Realista, com vidros e lanternas.' },
-  { id: 'vehicle-cutlass', kind: 'vehicle', label: 'Cutlass Supreme ’71', rank: 8, blurb: 'Clássico americano de rua.' },
+  ...GLB_CAR_LIST.map(c => ({ id: `vehicle-${c.id}`, kind: 'vehicle' as const, label: c.label, rank: c.rank, blurb: c.type.charAt(0) + c.type.slice(1).toLowerCase() + ' realista.' })),
   { id: 'vehicle-supercar', kind: 'vehicle', label: 'Esportivo', rank: 10, blurb: 'Recompensa da Lenda do Asfalto.' },
 ]
 

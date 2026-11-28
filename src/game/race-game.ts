@@ -16,7 +16,8 @@ import { applyGarageVisuals } from './garage-visuals'
 import { PowerFx } from './power-fx'
 import { Effects } from './fx'
 import { createSupercar, loadedSupercar } from './supercar'
-import { createGlbCar, isGlbCar, loadedGlbCar } from './glb-cars'
+import type { GlbCarId } from './glb-car-list'
+import { createGlbCar, isGlbCar, loadedGlbCar, preloadGlbCar } from './glb-cars'
 import { TINT_OPTIONS, WHEEL_OPTIONS } from './economy'
 import type { ScenarioId } from './scenarios'
 import type { PlayerVehicleId } from '../engine/save'
@@ -141,13 +142,14 @@ export class RaceGame {
   private playerWheels: THREE.Object3D[] = []
   private wheelSpin = 0
   private pitchLoad = 0
+  private wantedVehicle = ''
 
   private buildPlayerCar(model: PlayerVehicleId, paint: THREE.ColorRepresentation, wheels: string, tint: string, spoiler: string, suspension: string, exhaust: string, headlights: string): THREE.Group {
     this.playerWheels = []
     const glb = isGlbCar(model) ? loadedGlbCar(model) : undefined
     if (glb) {
       const tintOpt = TINT_OPTIONS.find(o => o.id === tint) ?? TINT_OPTIONS[0]
-      const car = createGlbCar(glb, paint, { color: tintOpt.color, opacity: tint === 'dark' ? 0.92 : tint === 'light' ? 0.5 : 0.75 })
+      const car = createGlbCar(model as GlbCarId, glb, paint, { color: tintOpt.color, opacity: tint === 'dark' ? 0.92 : tint === 'light' ? 0.5 : 0.75 })
       this.playerWheels = car.wheels
       return car.group
     }
@@ -175,6 +177,14 @@ export class RaceGame {
   setPlayerVehicle(model: PlayerVehicleId, paint = '#4a5052', wheels = 'alloy', tint = 'smoke', spoiler = 'none', suspension = 'stock', exhaust = 'stock', headlights = 'halogen'): void {
     this.playerVisual.clear()
     this.playerVisual.add(this.buildPlayerCar(model, paint, wheels, tint, spoiler, suspension, exhaust, headlights))
+    this.wantedVehicle = `${model}|${paint}|${wheels}|${tint}|${spoiler}|${suspension}|${exhaust}|${headlights}`
+    if (isGlbCar(model) && !loadedGlbCar(model)) {
+      // O modelo é baixado só quando escolhido; enquanto isso fica o Gol, e a troca acontece ao terminar.
+      const wanted = this.wantedVehicle
+      void preloadGlbCar(model).then(() => {
+        if (this.wantedVehicle === wanted) this.setPlayerVehicle(model, paint, wheels, tint, spoiler, suspension, exhaust, headlights)
+      }).catch(() => undefined)
+    }
   }
 
   /** While the garage is open the camera orbits the car and frames it beside the side panel. */
