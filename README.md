@@ -71,6 +71,12 @@ Libraries: three.js (MIT), Rapier (Apache-2.0).
 CC BY 4.0, de KhronosGroup/glTF-Sample-Assets. Otimizado (malha simplificada, texturas WebP 1024px, compressão meshopt)
 em `public/models/supercar.glb`.
 
+3D model: "Generic Sedan Car" (https://sketchfab.com/3d-models/generic-sedan-car-58c33766470d46e7b2aed542650494e5) by Márcio Meireles
+(https://sketchfab.com/marciomeireles), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/). Otimizado em `public/models/sedan.glb`.
+
+3D model: "Oldsmobile Cutlass Supreme Sedan '71" (https://sketchfab.com/3d-models/oldsmobile-cutlass-supreme-sedan-71-78f76d386a4341b0b71745bdc50fd5ab) by Barbo
+(https://sketchfab.com/barbo-autos), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/). Otimizado em `public/models/cutlass.glb`.
+
 ## Preview Tweak
 
 `src/game/tuning.ts` is this game's parameter manager. The Addon panel reads its

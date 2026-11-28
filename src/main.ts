@@ -10,6 +10,7 @@ import { GameLoop } from './engine/loop'
 import { Renderer, suggestQuality } from './engine/renderer'
 import { SAVE_KEY, SaveStore, insertScore, type PlayerVehicleId } from './engine/save'
 import { preloadSupercar } from './game/supercar'
+import { preloadGlbCar } from './game/glb-cars'
 import type { ScenarioId } from './game/scenarios'
 import { RaceGame, type RaceResult } from './game/race-game'
 import { POWERS, buyPowerUpgrade } from './game/powers'
@@ -331,6 +332,7 @@ async function boot(): Promise<void> {
   engineSound = engine ?? undefined
 
   ui.setBootProgress(0.76, 'Preparando o trânsito…')
+  await Promise.all([preloadGlbCar('sedan'), preloadGlbCar('cutlass')]).catch(() => undefined)
   await preloadSupercar().catch(() => undefined) // optional: falls back to the procedural Gol if it cannot load
   const renderer = new Renderer(canvas, save.data.quality)
   game = new RaceGame(renderer, input, audio, { crash: crashSound, engine: engineSound, playerVehicle: save.data.playerVehicle as PlayerVehicleId, scenario: save.data.scenario as ScenarioId, playerPaint: save.data.playerPaint, playerWheels: save.data.playerWheels, playerTint: save.data.playerTint, playerSpoiler: save.data.playerSpoiler, playerSuspension: save.data.playerSuspension, playerExhaust: save.data.playerExhaust, playerHeadlights: save.data.playerHeadlights })

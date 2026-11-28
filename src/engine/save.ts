@@ -9,7 +9,7 @@ import { cityById, defaultWorld, parseWorld, FIRST_CITY, type WorldState } from 
 export type Locale = 'en' | 'zh-CN'
 export type Quality = 'low' | 'medium' | 'high'
 
-export type PlayerVehicleId = 'gol-g5' | 'uno' | 'palio' | 'celta' | 'corsa' | 'onix' | 'hb20' | 'saveiro' | 'fiorino' | 'supercar'
+export type PlayerVehicleId = 'gol-g5' | 'uno' | 'palio' | 'celta' | 'corsa' | 'onix' | 'hb20' | 'saveiro' | 'fiorino' | 'supercar' | 'sedan' | 'cutlass'
 
 export type ScoreEntry = { name: string; score: number; seconds: number; at: number }
 
@@ -62,7 +62,7 @@ export type SaveData = {
 
 export const SAVE_KEY = 'asfalto.save.v8'
 const LEGACY_SAVE_KEYS = ['asfalto.save.v7', 'asfalto.save.v6', 'asfalto.save.v5', 'asfalto.save.v4', 'asfalto.save.v3', 'asfalto.save.v2', 'asfalto.save.v1']
-const VEHICLES: PlayerVehicleId[] = ['gol-g5', 'uno', 'palio', 'celta', 'corsa', 'onix', 'hb20', 'saveiro', 'fiorino', 'supercar']
+const VEHICLES: PlayerVehicleId[] = ['gol-g5', 'uno', 'palio', 'celta', 'corsa', 'onix', 'hb20', 'saveiro', 'fiorino', 'supercar', 'sedan', 'cutlass']
 export const LEADERBOARD_SIZE = 10
 
 export function defaultSave(): SaveData {

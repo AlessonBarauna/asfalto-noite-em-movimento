@@ -4,6 +4,7 @@ import type { PlayerVehicleId, ScoreEntry } from '../engine/save'
 import { PAINT_OPTIONS, VEHICLE_PRICES, WHEEL_OPTIONS, TINT_OPTIONS, SPOILER_OPTIONS, SUSPENSION_OPTIONS, EXHAUST_OPTIONS, HEADLIGHT_OPTIONS } from '../game/economy'
 import { BRAZILIAN_TRAFFIC_MODELS } from '../game/traffic-vehicles'
 import { SUPERCAR } from '../game/supercar'
+import { GLB_CARS } from '../game/glb-cars'
 import { POWERS, POWER_IDS, MAX_POWER_LEVEL, powerDuration, upgradeCost, type PowerId, type PowerLevels } from '../game/powers'
 import { controlPrefs, requestTiltPermission, PAD_LABELS, type PadId, type ControlScheme } from './controls-prefs'
 import { difficultyLabel, RANKS, describeObjective, rankStatus, nextUnlocks, requiredRank, vehicleUnlockId, STAGES, COUNTRIES, stageRank, countryTicket, cityTicket, cityById, countryOfCity, type RunReport, type WorldState } from '../game/career'
@@ -223,11 +224,11 @@ export class RaceUI {
     this.set('.garage-balance', credits.toLocaleString('pt-BR'))
     const grid = this.root.querySelector<HTMLElement>('.garage-grid')
     if (grid) {
-      const premium = [{ id: SUPERCAR.id, label: SUPERCAR.label, utility: undefined as string | undefined, premium: true }]
+      const premium = [{ id: SUPERCAR.id as PlayerVehicleId, label: SUPERCAR.label as string, utility: undefined as string | undefined, premium: 'ESPORTIVO' }, ...Object.values(GLB_CARS).map(c => ({ id: c.id as PlayerVehicleId, label: c.label as string, utility: undefined as string | undefined, premium: c.type as string }))]
       grid.innerHTML = [...BRAZILIAN_TRAFFIC_MODELS, ...premium].map(model => {
         const active = model.id === selected
         const owned = unlocked.includes(model.id)
-        const type = 'premium' in model ? 'ESPORTIVO' : model.utility === 'pickup' ? 'PICAPE' : model.utility === 'van' ? 'UTILITÁRIO' : 'HATCH'
+        const type = 'premium' in model ? model.premium : model.utility === 'pickup' ? 'PICAPE' : model.utility === 'van' ? 'UTILITÁRIO' : 'HATCH'
         const price = VEHICLE_PRICES[model.id as PlayerVehicleId]
         if (owned) {
           return '<button class="garage-car ' + (active ? 'is-selected' : '') + '" data-vehicle="' + model.id + '" aria-pressed="' + active + '"><span class="garage-car-type">' + type + '</span><strong>' + model.label + '</strong><small>' + (active ? 'EM USO' : 'SELECIONAR') + '</small></button>'
