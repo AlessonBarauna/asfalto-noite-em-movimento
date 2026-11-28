@@ -16,6 +16,7 @@ import { applyGarageVisuals } from './garage-visuals'
 import { PowerFx } from './power-fx'
 import { Effects } from './fx'
 import { createSupercar, loadedSupercar } from './supercar'
+import { createGlbCar, isGlbCar, loadedGlbCar } from './glb-cars'
 import { TINT_OPTIONS, WHEEL_OPTIONS } from './economy'
 import type { ScenarioId } from './scenarios'
 import type { PlayerVehicleId } from '../engine/save'
@@ -143,6 +144,13 @@ export class RaceGame {
 
   private buildPlayerCar(model: PlayerVehicleId, paint: THREE.ColorRepresentation, wheels: string, tint: string, spoiler: string, suspension: string, exhaust: string, headlights: string): THREE.Group {
     this.playerWheels = []
+    const glb = isGlbCar(model) ? loadedGlbCar(model) : undefined
+    if (glb) {
+      const tintOpt = TINT_OPTIONS.find(o => o.id === tint) ?? TINT_OPTIONS[0]
+      const car = createGlbCar(glb, paint, { color: tintOpt.color, opacity: tint === 'dark' ? 0.92 : tint === 'light' ? 0.5 : 0.75 })
+      this.playerWheels = car.wheels
+      return car.group
+    }
     const template = model === 'supercar' ? loadedSupercar() : undefined
     if (template) {
       const car = createSupercar(template, paint)
@@ -159,7 +167,7 @@ export class RaceGame {
       })
       return car.group
     }
-    const car = model === 'gol-g5' || model === 'supercar' ? createGolG5Model(paint) : createBrazilianTrafficVehicle(model, paint)
+    const car = model === 'gol-g5' || model === 'supercar' || isGlbCar(model) ? createGolG5Model(paint) : createBrazilianTrafficVehicle(model, paint)
     applyGarageVisuals(car, wheels, tint, spoiler, suspension, exhaust, headlights)
     return car
   }

@@ -30,6 +30,8 @@ export const UNLOCKS: readonly UnlockEntry[] = [
   { id: 'vehicle-onix', kind: 'vehicle', label: 'Onix', rank: 5, blurb: 'O mais vendido do país.' },
   { id: 'vehicle-saveiro', kind: 'vehicle', label: 'Saveiro', rank: 6, blurb: 'Picape leve de carga.' },
   { id: 'vehicle-fiorino', kind: 'vehicle', label: 'Fiorino', rank: 6, blurb: 'Furgão de entrega.' },
+  { id: 'vehicle-sedan', kind: 'vehicle', label: 'Sedan Executivo', rank: 7, blurb: 'Realista, com vidros e lanternas.' },
+  { id: 'vehicle-cutlass', kind: 'vehicle', label: 'Cutlass Supreme ’71', rank: 8, blurb: 'Clássico americano de rua.' },
   { id: 'vehicle-supercar', kind: 'vehicle', label: 'Esportivo', rank: 10, blurb: 'Recompensa da Lenda do Asfalto.' },
 ]
 

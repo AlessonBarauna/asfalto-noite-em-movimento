@@ -23,6 +23,8 @@ export const VEHICLE_PRICES: Record<PlayerVehicleId, number> = {
   saveiro: 2200,
   fiorino: 2500,
   supercar: 0,
+  sedan: 3200,
+  cutlass: 4200,
 }
 
 export type VehiclePurchase = {
