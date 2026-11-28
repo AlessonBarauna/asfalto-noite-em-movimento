@@ -40,6 +40,15 @@ export class Effects {
     }
   }
 
+  /** Fumaça de pneu: duas baforadas cinza que sobem devagar atrás das rodas traseiras. */
+  smoke(at: THREE.Vector3, side: number): void {
+    const c = new THREE.Color('#aab1b8')
+    for (let i = 0; i < 2; i += 1) {
+      const vel = new THREE.Vector3(side * (0.6 + Math.random()), 0.5 + Math.random() * 0.6, 2 + Math.random() * 2)
+      this.spawn({ life: 0, max: 0.5 + Math.random() * 0.35, pos: at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.2, 0, 0)), vel, size: 1.6 + Math.random() * 1.2, color: c, gravity: 0.4 })
+    }
+  }
+
   private spawn(p: Particle): void {
     if (this.particles.length >= MAX) this.particles.shift()
     this.particles.push(p)

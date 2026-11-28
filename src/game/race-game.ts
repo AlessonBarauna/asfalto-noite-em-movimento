@@ -137,6 +137,7 @@ export class RaceGame {
 
   private playerWheels: THREE.Object3D[] = []
   private wheelSpin = 0
+  private pitchLoad = 0
 
   private buildPlayerCar(model: PlayerVehicleId, paint: THREE.ColorRepresentation, wheels: string, tint: string, spoiler: string, suspension: string, exhaust: string, headlights: string): THREE.Group {
     this.playerWheels = []
@@ -352,8 +353,19 @@ export class RaceGame {
     this.steer += (wanted - this.steer) * Math.min(1, dt * rate)
     this.x = clampSteering(this.x + this.steer * RACE_CONFIG.steerSpeed * sensitivity * steerSpeedFactor(this.speed) * dt)
     this.player.position.x = this.x
-    if (Math.abs(this.steer) > 0.82 && this.speed > 26 && this.jumpY <= 0) this.sound.screech()
+    if (Math.abs(this.steer) > 0.82 && this.speed > 26 && this.jumpY <= 0) {
+      this.sound.screech()
+      if (this.mode === 'playing' && Math.random() < 0.55) {
+        for (const side of [-1, 1]) this.effects.smoke(new THREE.Vector3(this.x + side * 0.85, 0.2, RACE_CONFIG.playerZ + 1.3), -Math.sign(this.steer))
+      }
+    }
     this.playerVisual.rotation.z = THREE.MathUtils.damp(this.playerVisual.rotation.z, -this.steer * 0.075, 7, dt)
+    // Peso do carro: aponta o nariz para a curva, agacha na aceleração do nitro e mergulha na freada.
+    const braking = this.mode === 'playing' && this.input.move.y < -0.12
+    const pitchWanted = this.boostTimer > 0 ? 0.03 : braking ? -0.035 : 0
+    this.playerVisual.rotation.y = THREE.MathUtils.damp(this.playerVisual.rotation.y, -this.steer * 0.05, 8, dt)
+    this.pitchLoad = THREE.MathUtils.damp(this.pitchLoad, pitchWanted, 6, dt)
+    this.playerVisual.rotation.x += this.pitchLoad
     if (this.invulnerable > 0) this.player.visible = Math.floor(this.elapsed * 13) % 2 === 0
     else this.player.visible = true
 

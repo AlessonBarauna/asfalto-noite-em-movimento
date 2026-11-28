@@ -47,6 +47,103 @@ function addBox(
   return mesh
 }
 
+
+type Station = readonly [z: number, top: number]
+/** Perfil lateral (z, altura do teto/capô) igual ao do Gol G5 original. */
+const BODY_PROFILE: readonly Station[] = [
+  [-1.96, 0.78], [-1.92, 0.91], [-1.76, 0.95], [-1.48, 0.99], [-1.12, 1.4], [-0.9, 1.55], [-0.7, 1.585],
+  [0.3, 1.585], [0.5, 1.5], [0.98, 1.04], [1.3, 0.985], [1.62, 0.98], [1.86, 0.95], [1.94, 0.78],
+]
+
+function topAt(z: number): number {
+  for (let i = 0; i < BODY_PROFILE.length - 1; i += 1) {
+    const [z0, y0] = BODY_PROFILE[i]
+    const [z1, y1] = BODY_PROFILE[i + 1]
+    if (z >= z0 && z <= z1) {
+      const t = (z - z0) / (z1 - z0)
+      const k = t * t * (3 - 2 * t)
+      return y0 + (y1 - y0) * (0.55 * t + 0.45 * k)
+    }
+  }
+  return 0.8
+}
+
+/** Casco suave: cada seção é um anel (base, ombro, teto) e as seções são ligadas em malha única. */
+function createLoftedBodyGeometry(): THREE.BufferGeometry {
+  const bottom = 0.38
+  const stations = 46
+  const z0 = BODY_PROFILE[0][0]
+  const z1 = BODY_PROFILE[BODY_PROFILE.length - 1][0]
+  const half: [number, number][] = []
+  const ringFor = (z: number): [number, number][] => {
+    const top = topAt(z)
+    const u = (z - z0) / (z1 - z0)
+    const end = Math.min(1, Math.min(u, 1 - u) / 0.07)
+    const taper = 0.9 + 0.1 * Math.sqrt(Math.max(0, end))
+    const shoulderY = Math.min(0.99, top - 0.05)
+    const cabin = Math.max(0, Math.min(1, (top - 1.0) / 0.55))
+    const wb = 0.85 * taper
+    const ws = 0.86 * taper
+    const wr = ws - 0.13 * cabin - 0.02
+    const crown = Math.min(0.07, (top - shoulderY) * 0.5 + 0.03)
+    const pts: [number, number][] = [
+      [0, bottom], [wb * 0.8, bottom], [wb, bottom + 0.07], [ws, bottom + (shoulderY - bottom) * 0.55],
+      [ws, shoulderY - 0.04], [ws * 0.985, shoulderY],
+    ]
+    if (cabin > 0.02) pts.push([(ws * 0.985 + wr) / 2, shoulderY + (top - shoulderY) * 0.5], [wr, top - 0.12 * cabin - crown])
+    pts.push([wr * 0.9, top - crown * 0.45], [wr * 0.55, top - crown * 0.12], [0, top])
+    return pts
+  }
+  // Todos os anéis precisam ter o mesmo número de pontos: usa o máximo e repete o primeiro quando faltar.
+  const rings: [number, number][][] = []
+  let maxLen = 0
+  for (let i = 0; i <= stations; i += 1) {
+    const r = ringFor(z0 + ((z1 - z0) * i) / stations)
+    rings.push(r)
+    maxLen = Math.max(maxLen, r.length)
+  }
+  for (const r of rings) {
+    // Insere pontos repetidos logo antes da coroa para igualar o tamanho sem distorcer a forma.
+    while (r.length < maxLen) r.splice(r.length - 2, 0, r[r.length - 3] ?? r[0])
+  }
+  half.length = 0
+  const perRing = maxLen * 2 - 1
+  const positions: number[] = []
+  const indices: number[] = []
+  rings.forEach((r, i) => {
+    const z = z0 + ((z1 - z0) * i) / stations
+    for (let k = 0; k < r.length; k += 1) positions.push(-r[k][0], r[k][1], z)
+    for (let k = r.length - 2; k >= 0; k -= 1) positions.push(r[k][0], r[k][1], z)
+  })
+  for (let i = 0; i < stations; i += 1) {
+    for (let k = 0; k < perRing - 1; k += 1) {
+      const a = i * perRing + k
+      const b = a + 1
+      const c = (i + 1) * perRing + k
+      const d = c + 1
+      indices.push(a, c, b, b, c, d)
+    }
+  }
+  // Tampas frontal e traseira (leque a partir do centro do anel).
+  for (const [ringIndex, flip] of [[0, false], [stations, true]] as const) {
+    const base = positions.length / 3
+    const first = ringIndex * perRing
+    const z = z0 + ((z1 - z0) * ringIndex) / stations
+    positions.push(0, bottom + 0.2, z)
+    for (let k = 0; k < perRing - 1; k += 1) {
+      const a = first + k
+      const b = first + k + 1
+      if (flip) indices.push(base, b, a)
+      else indices.push(base, a, b)
+    }
+  }
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geometry.setIndex(indices)
+  geometry.computeVertexNormals()
+  return geometry
+}
+
 /**
  * Builds a named, modular Gol G5 model. Separate body, glass, trim, lights and wheel
  * groups make later paint, wheel and accessory customization straightforward.
@@ -88,43 +185,38 @@ export function createGolG5Model(paint: THREE.ColorRepresentation = '#4a5052'): 
     color: '#e58a36', emissive: '#ff6a18', emissiveIntensity: 0.8,
   })
 
-  // The lower body uses a beveled side profile instead of a plain rectangular block.
-  const silhouette = new THREE.Shape()
-  silhouette.moveTo(-1.96, 0.38)
-  silhouette.lineTo(-1.96, 0.78)
-  silhouette.quadraticCurveTo(-1.92, 0.91, -1.76, 0.94)
-  silhouette.lineTo(-1.48, 0.98)
-  silhouette.lineTo(-1.02, 1.54)
-  silhouette.quadraticCurveTo(-0.94, 1.59, -0.82, 1.59)
-  silhouette.lineTo(0.34, 1.59)
-  silhouette.quadraticCurveTo(0.48, 1.58, 0.57, 1.46)
-  silhouette.lineTo(0.98, 1.02)
-  silhouette.lineTo(1.62, 0.98)
-  silhouette.quadraticCurveTo(1.86, 0.95, 1.94, 0.78)
-  silhouette.lineTo(1.94, 0.4)
-  silhouette.closePath()
-  const shellGeometry = new THREE.ExtrudeGeometry(silhouette, {
-    depth: GOL_G5_DIMENSIONS.width,
-    bevelEnabled: true,
-    bevelSegments: 3,
-    steps: 1,
-    bevelSize: 0.035,
-    bevelThickness: 0.035,
-    curveSegments: 8,
-  })
-  shellGeometry.rotateY(-Math.PI / 2)
-  shellGeometry.translate(GOL_G5_DIMENSIONS.width / 2, 0, 0)
-  const shell = new THREE.Mesh(shellGeometry, paintMaterial)
+  // Casco em loft: seções transversais arredondadas (cintura, ombro, teto com abaulado) ao longo do comprimento.
+  const shell = new THREE.Mesh(createLoftedBodyGeometry(), paintMaterial)
   shell.name = 'gol-g5-body-shell'
   shell.castShadow = true
   shell.receiveShadow = true
   body.add(shell)
 
-  // Hood, hatch, roof and bumpers give the silhouette the compact G5 proportions.
-  addBox(body, 'gol-g5-hood', [1.58, 0.075, 0.72], [0, 0.91, 1.34], paintMaterial, true)
-  addBox(body, 'gol-g5-roof', [1.42, 0.075, 1.18], [0, 1.585, -0.24], paintMaterial, true)
+  // Para-choques e caixas de roda escuras (a roda parece entrar na carroceria, como num carro de verdade).
   addBox(body, 'gol-g5-front-bumper', [1.7, 0.2, 0.16], [0, 0.43, 1.91], darkTrim, true)
   addBox(body, 'gol-g5-rear-bumper', [1.7, 0.2, 0.16], [0, 0.43, -1.94], darkTrim, true)
+  const archMaterial = new THREE.MeshStandardMaterial({ color: '#06080a', roughness: 1 })
+  for (const side of [-1, 1]) {
+    for (const z of [1.25, -1.28]) {
+      const arch = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.05, 28), archMaterial)
+      arch.name = 'wheel-arch'
+      arch.rotation.z = Math.PI / 2
+      arch.position.set(side * 0.845, 0.4, z)
+      body.add(arch)
+      const lip = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.022, 8, 28), darkTrim)
+      lip.name = 'wheel-arch-lip'
+      lip.rotation.y = Math.PI / 2
+      lip.position.set(side * 0.862, 0.4, z)
+      body.add(lip)
+    }
+  }
+  // Faixa de LED traseira e luz diurna dianteira.
+  const ledRed = new THREE.MeshBasicMaterial({ color: '#ff2a22', toneMapped: false })
+  const ledWhite = new THREE.MeshBasicMaterial({ color: '#e8f4ff', toneMapped: false })
+  addBox(lights, 'gol-g5-led-bar', [0.7, 0.026, 0.02], [0, 0.86, -1.975], ledRed)
+  for (const side of [-1, 1]) {
+    addBox(lights, `gol-g5-drl-${side}`, [0.36, 0.022, 0.02], [side * 0.58, 0.77, 1.975], ledWhite)
+  }
 
   // Windshield and hatch glass, plus four side-window panes.
   addQuad(glass, 'gol-g5-windshield', [
