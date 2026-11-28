@@ -28,7 +28,7 @@ export function preloadGlbCar(id: GlbCarId): Promise<THREE.Group> {
       root.updateMatrixWorld(true)
       let box = new THREE.Box3().setFromObject(root)
       // Alguns modelos vêm deitados no eixo X; gira para que o comprimento fique em Z (a frente em +Z).
-      const yaw = def.yaw ?? (box.max.x - box.min.x > box.max.z - box.min.z ? Math.PI / 2 : 0)
+      const yaw = (def.yaw ?? (box.max.x - box.min.x > box.max.z - box.min.z ? Math.PI / 2 : 0)) + (def.flip ? Math.PI : 0)
       if (yaw) { root.rotation.y = yaw; root.updateMatrixWorld(true); box = new THREE.Box3().setFromObject(root) }
       const scale = def.length / (box.max.z - box.min.z)
       const wrapper = new THREE.Group()
