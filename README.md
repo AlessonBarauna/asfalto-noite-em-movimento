@@ -107,6 +107,16 @@ Modelos 3D adicionais da garagem (Sketchfab), otimizados em `public/models/<id>.
 - "Lamborghini venevo" by Jonrss (https://sketchfab.com/huy14320000006), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `venevo.glb`
 - "2018 Ferrari SP38 (Deborah)" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `sp38.glb`
 - "Ferrari Laferrari | www.vecarz.com" by vecarz (https://sketchfab.com/heynic), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `laferrari.glb`
+- "2005 Sedan PSX Style - Han66st" by Han66st (https://sketchfab.com/Han66st), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `psx-sedan.glb`
+- "Fiat Uno 2001" by B.M.A (https://sketchfab.com/B.M.A), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `uno-2001.glb`
+- "1999 Volkswagen Gol 2000 GTi (G2)" by Ezo (https://sketchfab.com/EzoYEAHH), licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/) — `gol-gti.glb`
+- "Generic Toyama XR Sedan" by mk2design (https://sketchfab.com/mk2design), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `toyama-xr.glb`
+- "chevrolet onix" by uzb_rx7 (https://sketchfab.com/uzbek_supra), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `onix-rs.glb`
+- "VW+GOL+G5" by vinishows-1753d1 (https://sketchfab.com/vinishows-1753d1), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `gol-g5-real.glb`
+- "Chevrolet Onix 2024" by Doniyor 3D (https://sketchfab.com/doniyorgroup), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `onix-2024.glb`
+- "Low Poly Car - Cadillac 75 Sedan 1953" by tedpermana (https://sketchfab.com/tedpermana), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `cadillac-75.glb`
+- "BMW M3 Sedan 2013" by David_Holiday (https://sketchfab.com/David_Holiday), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `m3-sedan.glb`
+- "2024 BYD Yangwang U9" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `yangwang-u9.glb`
 
 ## Preview Tweak
 

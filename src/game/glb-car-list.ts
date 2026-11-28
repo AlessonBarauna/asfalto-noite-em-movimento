@@ -9,6 +9,8 @@ export type GlbCarDef = {
   paint?: RegExp
   /** Giro em Y (rad) para a frente apontar para +Z; sem isso é detectado pelo eixo mais comprido. */
   yaw?: number
+  /** Soma meia volta ao giro detectado (modelo que veio de costas). */
+  flip?: boolean
   rank: number
   price: number
 }
@@ -45,6 +47,35 @@ export const GLB_CAR_LIST = [
   { id: 'venevo', label: 'Lamborghini Veneno', type: 'SUPERESPORTIVO', length: 4.8, rank: 10, price: 9500 },
   { id: 'sp38', label: 'Ferrari SP38 Deborah', type: 'SUPERESPORTIVO', length: 4.7, paint: /^PAINT$/, rank: 10, price: 10000 },
   { id: 'laferrari', label: 'Ferrari LaFerrari', type: 'SUPERESPORTIVO', length: 4.7, paint: /^Body$/, rank: 10, price: 11000 },
+  { id: 'psx-sedan', label: 'Sedan PSX', type: 'RETRÔ', length: 4.4, rank: 2, price: 300 },
+  { id: 'uno-2001', label: 'Fiat Uno 2001', type: 'HATCH', length: 3.7, rank: 2, price: 500 },
+  { id: 'gol-gti', flip: true, label: 'VW Gol GTi 1999', type: 'HATCH ESPORTIVO', length: 3.8, paint: /^Paint$/, rank: 3, price: 900 },
+  { id: 'toyama-xr', label: 'Toyama XR', type: 'SEDÃ', length: 4.5, paint: /^Body_Paint$/, rank: 4, price: 1300 },
+  { id: 'onix-rs', flip: true, label: 'Chevrolet Onix', type: 'HATCH', length: 3.9, paint: /^primary$/, rank: 4, price: 1500 },
+  { id: 'gol-g5-real', flip: true, label: 'VW Gol G5 (realista)', type: 'HATCH', length: 3.9, rank: 4, price: 1500 },
+  { id: 'onix-2024', label: 'Chevrolet Onix 2024', type: 'HATCH', length: 4.2, rank: 5, price: 2100 },
+  { id: 'cadillac-75', label: 'Cadillac 75 1953', type: 'CLÁSSICO', length: 5.6, paint: /^Body$/, rank: 6, price: 2600 },
+  { id: 'm3-sedan', flip: true, label: 'BMW M3 Sedan 2013', type: 'ESPORTIVO', length: 4.7, paint: /^body$/, rank: 8, price: 4900 },
+  { id: 'yangwang-u9', label: 'BYD Yangwang U9', type: 'SUPERESPORTIVO', length: 4.97, paint: /Carpaint$/, rank: 10, price: 9800 },
 ] as const satisfies readonly GlbCarDef[]
 
 export type GlbCarId = (typeof GLB_CAR_LIST)[number]['id']
+
+/** Carros fora do trânsito (a versão leve ficou sem forma). */
+const NO_TRAFFIC: readonly string[] = ['m4-csl']
+
+/**
+ * Carros que circulam no trânsito de uma fase do mapa (1 = Brasil … 8 = Europa famosa):
+ * fases baratas pegam os populares, as caras pegam esportivos e superesportivos.
+ * Janela deslizante sobre o catálogo ordenado por preço; sempre inclui alguns carros mais simples.
+ */
+export function trafficCarsForStage(stage: number, count = 8): GlbCarId[] {
+  const sorted = GLB_CAR_LIST.filter(c => !NO_TRAFFIC.includes(c.id)).sort((a, b) => a.price - b.price)
+  const n = sorted.length
+  const t = Math.min(1, Math.max(0, (stage - 1) / 7))
+  const width = Math.max(count, Math.round(n * 0.4))
+  const start = Math.round(t * (n - width))
+  const window = sorted.slice(start, start + width)
+  const step = window.length / count
+  return Array.from({ length: count }, (_, i) => window[Math.min(window.length - 1, Math.floor(i * step))].id)
+}
