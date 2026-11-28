@@ -2,23 +2,20 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 
-/** Carros realistas em glTF (CC BY 4.0, créditos no README e na tela de créditos). */
-export const GLB_CARS = {
-  sedan: { id: 'sedan', label: 'Sedan Executivo', type: 'SEDÃ', file: 'sedan.glb', length: 4.5, flip: false },
-  cutlass: { id: 'cutlass', label: 'Cutlass Supreme ’71', type: 'CLÁSSICO', file: 'cutlass.glb', length: 4.6, flip: true },
-} as const
+import { GLB_CAR_LIST, type GlbCarDef, type GlbCarId } from './glb-car-list'
 
-export type GlbCarId = keyof typeof GLB_CARS
+/** Carros realistas em glTF (licenças CC BY / CC BY-NC no README). Carregados só quando escolhidos na garagem. */
+export const GLB_CARS: Record<string, GlbCarDef> = Object.fromEntries(GLB_CAR_LIST.map(c => [c.id, c]))
 export const isGlbCar = (id: string): id is GlbCarId => id in GLB_CARS
 
-const cache = new Map<GlbCarId, Promise<THREE.Group>>()
-const ready = new Map<GlbCarId, THREE.Group>()
+const cache = new Map<string, Promise<THREE.Group>>()
+const ready = new Map<string, THREE.Group>()
 
 export function loadedGlbCar(id: GlbCarId): THREE.Group | undefined {
   return ready.get(id)
 }
 
-/** Carrega uma vez (meshopt, ~1,5 MB) e normaliza: comprimento em metros, centrado, rodas no chão, frente em +Z. */
+/** Carrega uma vez (meshopt, ~1 MB) e normaliza: comprimento em metros, centrado, rodas no chão, frente em +Z. */
 export function preloadGlbCar(id: GlbCarId): Promise<THREE.Group> {
   let p = cache.get(id)
   if (!p) {
@@ -26,7 +23,7 @@ export function preloadGlbCar(id: GlbCarId): Promise<THREE.Group> {
     p = (async () => {
       const loader = new GLTFLoader()
       loader.setMeshoptDecoder(MeshoptDecoder)
-      const gltf = await loader.loadAsync(`${import.meta.env.BASE_URL}models/${def.file}`)
+      const gltf = await loader.loadAsync(`${import.meta.env.BASE_URL}models/${id}.glb`)
       const root = gltf.scene
       root.updateMatrixWorld(true)
       let box = new THREE.Box3().setFromObject(root)
@@ -40,10 +37,10 @@ export function preloadGlbCar(id: GlbCarId): Promise<THREE.Group> {
       root.position.set(-c.x / scale, -box.min.y / scale, -c.z / scale)
       const outer = new THREE.Group()
       outer.add(wrapper)
-      if (def.flip) wrapper.rotation.y = Math.PI
       ready.set(id, outer)
       return outer
     })()
+    p.catch(() => cache.delete(id)) // permite tentar de novo se a rede falhar
     cache.set(id, p)
   }
   return p
@@ -51,14 +48,14 @@ export function preloadGlbCar(id: GlbCarId): Promise<THREE.Group> {
 
 export type GlbCar = { group: THREE.Group; wheels: THREE.Object3D[] }
 
-const PAINT = /^(Car_Paint|M_Paint)/
-const GLASS = /^(Glass_ext|M_Glass)/
-const RED = /^Glass_-_Red/
+const GLASS = /^(?!.*(red|amber|orange|light|lamp|lens)).*(glass|vidrio|window|winsows|vitres)/i
+const RED = /(red_glass|red_emis|tail_?light|Glass_-_Red|FUSIONluz|^M_Lights$)/i
 
-export function createGlbCar(base: THREE.Group, paint: THREE.ColorRepresentation, tint: { color: string; opacity: number }): GlbCar {
+export function createGlbCar(id: GlbCarId, base: THREE.Group, paint: THREE.ColorRepresentation, tint: { color: string; opacity: number }): GlbCar {
   const group = base.clone(true)
   const own = new Map<THREE.Material, THREE.Material>()
   const color = new THREE.Color(paint)
+  const paintRe = GLB_CARS[id].paint
   group.traverse(node => {
     if (!(node instanceof THREE.Mesh)) return
     node.castShadow = true
@@ -66,13 +63,13 @@ export function createGlbCar(base: THREE.Group, paint: THREE.ColorRepresentation
     if (!mat) { mat = (node.material as THREE.Material).clone(); own.set(node.material, mat) }
     node.material = mat
     const m = mat as THREE.MeshStandardMaterial
-    if (PAINT.test(m.name)) {
+    if (paintRe?.test(m.name)) {
       m.map = null // o atlas de cores do modelo cede lugar à tinta escolhida na garagem
       m.color.copy(color)
       m.envMapIntensity = 1.5
       m.roughness = Math.min(m.roughness, 0.35)
       m.metalness = Math.max(m.metalness, 0.55)
-    } else if (GLASS.test(m.name)) {
+    } else if (GLASS.test(m.name) && !paintRe?.test(m.name)) {
       m.color.set(tint.color); m.transparent = true; m.opacity = tint.opacity; m.envMapIntensity = 2
     } else if (RED.test(m.name) || m.name === 'M_Lights') {
       m.emissive.set('#ff1a14'); m.emissiveIntensity = 1.4

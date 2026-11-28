@@ -77,6 +77,24 @@ em `public/models/supercar.glb`.
 3D model: "Oldsmobile Cutlass Supreme Sedan '71" (https://sketchfab.com/3d-models/oldsmobile-cutlass-supreme-sedan-71-78f76d386a4341b0b71745bdc50fd5ab) by Barbo
 (https://sketchfab.com/barbo-autos), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/). Otimizado em `public/models/cutlass.glb`.
 
+Modelos 3D adicionais da garagem (Sketchfab), otimizados em `public/models/<id>.glb`. Os marcados NC só podem ser usados sem fins comerciais (este jogo é um projeto pessoal e gratuito); os NC-SA devem ser redistribuídos sob a mesma licença:
+- "2015 Nissan Versa Sedan 1.6" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `versa.glb`
+- "2010 Ford Fusion" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `fusion.glb`
+- "2021 Nissan Kicks" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `kicks.glb`
+- "2016 Ford Focus RS" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `focus-rs.glb`
+- "2017 Ford GT" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `ford-gt.glb`
+- "2024 BYD Dolphin" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `dolphin.glb`
+- "2024 BYD Seal" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `seal.glb`
+- "2025 Ford Mustang GTD" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `mustang-gtd.glb`
+- "Ford Mustang 1965" by Pooya_dh (https://sketchfab.com/Pooya_dh), licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/) — `mustang-65.glb`
+- "Nissan GT-R" by iSteven (https://sketchfab.com/OneSteven), licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/) — `gt-r.glb`
+- "HB20s 2025" by GARAGISTA (https://sketchfab.com/-garagista1753d1), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `hb20s.glb`
+- "Hyundai Hb20 2025" by teenlin3 (https://sketchfab.com/teenlin3), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `hb20-2025.glb`
+- "Nissan Aimgain GT R35 Type2" by vecarz (https://sketchfab.com/heynic), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `gtr-type2.glb`
+- "Nissan Skyline" by soujagah (https://sketchfab.com/soujagah), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `skyline.glb`
+- "Tesla Cybertruck" by Lexyc16 (https://sketchfab.com/Lexyc16), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `cybertruck.glb`
+- "Tesla Roadster 2020" by metarex.4d (https://sketchfab.com/metarex.4d), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `roadster.glb`
+
 ## Preview Tweak
 
 `src/game/tuning.ts` is this game's parameter manager. The Addon panel reads its

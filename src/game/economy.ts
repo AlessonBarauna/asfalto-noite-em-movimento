@@ -1,5 +1,6 @@
 /** Economy rules are pure so payouts can be tested independently from rendering. */
 import type { PlayerVehicleId } from '../engine/save'
+import { GLB_CAR_LIST, type GlbCarId } from './glb-car-list'
 import { requiredRank, vehicleUnlockId } from './career/unlocks'
 
 export type RacePayout = { credits: number; distanceCredits: number; nearMissCredits: number }
@@ -13,6 +14,7 @@ export function calculateRacePayout(distanceMeters: number, nearMisses: number):
 
 /** Credit prices for the vehicles that can be unlocked in the garage. */
 export const VEHICLE_PRICES: Record<PlayerVehicleId, number> = {
+  ...(Object.fromEntries(GLB_CAR_LIST.map(c => [c.id, c.price])) as Record<GlbCarId, number>),
   'gol-g5': 0,
   uno: 400,
   palio: 550,
@@ -23,8 +25,6 @@ export const VEHICLE_PRICES: Record<PlayerVehicleId, number> = {
   saveiro: 2200,
   fiorino: 2500,
   supercar: 0,
-  sedan: 3200,
-  cutlass: 4200,
 }
 
 export type VehiclePurchase = {
