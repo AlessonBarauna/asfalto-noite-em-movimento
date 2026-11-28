@@ -27,6 +27,9 @@ export function preloadGlbCar(id: GlbCarId): Promise<THREE.Group> {
       const root = gltf.scene
       root.updateMatrixWorld(true)
       let box = new THREE.Box3().setFromObject(root)
+      // Alguns modelos vêm deitados no eixo X; gira para que o comprimento fique em Z (a frente em +Z).
+      const yaw = def.yaw ?? (box.max.x - box.min.x > box.max.z - box.min.z ? Math.PI / 2 : 0)
+      if (yaw) { root.rotation.y = yaw; root.updateMatrixWorld(true); box = new THREE.Box3().setFromObject(root) }
       const scale = def.length / (box.max.z - box.min.z)
       const wrapper = new THREE.Group()
       wrapper.add(root)
@@ -34,7 +37,7 @@ export function preloadGlbCar(id: GlbCarId): Promise<THREE.Group> {
       wrapper.updateMatrixWorld(true)
       box = new THREE.Box3().setFromObject(wrapper)
       const c = box.getCenter(new THREE.Vector3())
-      root.position.set(-c.x / scale, -box.min.y / scale, -c.z / scale)
+      root.position.add(new THREE.Vector3(-c.x / scale, -box.min.y / scale, -c.z / scale))
       const outer = new THREE.Group()
       outer.add(wrapper)
       ready.set(id, outer)

@@ -7,6 +7,8 @@ export type GlbCarDef = {
   length: number
   /** Material(is) de pintura que a garagem pode recolorir; sem isso o carro mantém a cor de fábrica. */
   paint?: RegExp
+  /** Giro em Y (rad) para a frente apontar para +Z; sem isso é detectado pelo eixo mais comprido. */
+  yaw?: number
   rank: number
   price: number
 }
@@ -30,6 +32,19 @@ export const GLB_CAR_LIST = [
   { id: 'roadster', label: 'Tesla Roadster', type: 'ESPORTIVO', length: 4.4, paint: /^car_main_paint$/, rank: 9, price: 6500 },
   { id: 'ford-gt', label: 'Ford GT 2017', type: 'SUPERESPORTIVO', length: 4.6, paint: /Paint_Material$/, rank: 10, price: 7500 },
   { id: 'mustang-gtd', label: 'Mustang GTD', type: 'SUPERESPORTIVO', length: 4.8, paint: /Paint_Material1$/, rank: 10, price: 8500 },
+  { id: 'g-wagon', label: 'Mercedes Classe G', type: 'SUV', length: 4.9, rank: 7, price: 3800 },
+  { id: 'm4-competition', label: 'BMW M4 Competition', type: 'ESPORTIVO', length: 4.8, rank: 8, price: 4600 },
+  { id: 'm2-adro', label: 'BMW M2 ADRO', type: 'ESPORTIVO', length: 4.5, paint: /PaintTNR_Material/, rank: 8, price: 4700 },
+  { id: 'm2-vorsteiner', label: 'BMW M2 Vorsteiner', type: 'ESPORTIVO', length: 4.5, paint: /PaintTNR_Material/, rank: 8, price: 4800 },
+  { id: 'bmw-xm', label: 'BMW XM', type: 'SUV', length: 5.1, paint: /Cape_York_Green_Metallic/, rank: 8, price: 5200 },
+  { id: 'm4-csl', label: 'BMW M4 CSL', type: 'ESPORTIVO', length: 4.8, yaw: -Math.PI / 2, paint: /^Car_Paint$/, rank: 9, price: 5800 },
+  { id: 'gallardo', label: 'Lamborghini Gallardo', type: 'SUPERESPORTIVO', length: 4.4, paint: /^paint$/, rank: 9, price: 6000 },
+  { id: 'amg-gt', label: 'Mercedes-AMG GT Black', type: 'SUPERESPORTIVO', length: 4.6, paint: /Paint_Material1$/, rank: 9, price: 6400 },
+  { id: 'purosangue', label: 'Ferrari Purosangue', type: 'SUV ESPORTIVO', length: 4.97, paint: /Paint_Material$/, rank: 9, price: 6800 },
+  { id: 'aventador', label: 'Lamborghini Aventador', type: 'SUPERESPORTIVO', length: 4.8, paint: /^Body$/, rank: 10, price: 9000 },
+  { id: 'venevo', label: 'Lamborghini Veneno', type: 'SUPERESPORTIVO', length: 4.8, rank: 10, price: 9500 },
+  { id: 'sp38', label: 'Ferrari SP38 Deborah', type: 'SUPERESPORTIVO', length: 4.7, paint: /^PAINT$/, rank: 10, price: 10000 },
+  { id: 'laferrari', label: 'Ferrari LaFerrari', type: 'SUPERESPORTIVO', length: 4.7, paint: /^Body$/, rank: 10, price: 11000 },
 ] as const satisfies readonly GlbCarDef[]
 
 export type GlbCarId = (typeof GLB_CAR_LIST)[number]['id']

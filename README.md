@@ -94,6 +94,19 @@ Modelos 3D adicionais da garagem (Sketchfab), otimizados em `public/models/<id>.
 - "Nissan Skyline" by soujagah (https://sketchfab.com/soujagah), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `skyline.glb`
 - "Tesla Cybertruck" by Lexyc16 (https://sketchfab.com/Lexyc16), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `cybertruck.glb`
 - "Tesla Roadster 2020" by metarex.4d (https://sketchfab.com/metarex.4d), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `roadster.glb`
+- "Mercedes Benz G-class W263" by Lexyc16 (https://sketchfab.com/Lexyc16), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `g-wagon.glb`
+- "2021 BMW M4 Competition" by Ricy (https://sketchfab.com/ngon_3d), licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/) — `m4-competition.glb`
+- "2023 BMW M2 G87 ADRO Carbon Fiber Aero Body Kit" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `m2-adro.glb`
+- "2024 Vorsteiner BMW G87 M2 VRS Aero Body Kit" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `m2-vorsteiner.glb`
+- "BMW XM - 2023" by Unn Interativa (https://sketchfab.com/unninterativa), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `bmw-xm.glb`
+- "BMW M4csl" by Mpgs Studios (https://sketchfab.com/mpgs.studio), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `m4-csl.glb`
+- "Lamborghini Gallardo 2010" by Artem P (https://sketchfab.com/temp0.crazy), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `gallardo.glb`
+- "2021 Mercedes-Benz AMG GT Black Series" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `amg-gt.glb`
+- "2023 Ferrari Purosangue" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `purosangue.glb`
+- "Lamborgini Aventador" by freekadelka (https://sketchfab.com/Dmitry.Kovalevsky), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `aventador.glb`
+- "Lamborghini venevo" by Jonrss (https://sketchfab.com/huy14320000006), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `venevo.glb`
+- "2018 Ferrari SP38 (Deborah)" by Ddiaz Design (https://sketchfab.com/ddiaz-design), licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) — `sp38.glb`
+- "Ferrari Laferrari | www.vecarz.com" by vecarz (https://sketchfab.com/heynic), licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/) — `laferrari.glb`
 
 ## Preview Tweak
 
