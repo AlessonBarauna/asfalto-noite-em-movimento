@@ -104,3 +104,17 @@ button,input,.eyebrow,.hud-score-label,.hud-speed-label{font-family:var(--font)}
 .boot-progress{height:4px;transform:skewX(-20deg)}.boot-progress i{background:linear-gradient(90deg,var(--accent),var(--cyan))}
 @media(max-width:700px){.gauge{width:104px}.hud-speed-value{font-size:30px}.game-btn{min-height:44px}}
 @media(max-height:520px) and (orientation:landscape){.gauge{width:92px}.hud-speed-value{font-size:27px}.hud-speed .hud-speed-label{margin-top:-10px}.game-btn{padding:6px 12px 6px 16px}}
+
+/* Poderes: brilho de borda, flash de ativação e linhas de velocidade (cor vem de --pw, definida pelo jogo). */
+#ui{z-index:5}
+body::after,body::before{content:'';position:fixed;inset:0;pointer-events:none;opacity:0}
+body::after{z-index:4;transition:opacity .45s;background:radial-gradient(ellipse at 50% 52%,transparent 52%,color-mix(in srgb,var(--pw,#fff) 38%,transparent) 100%)}
+body::before{z-index:4;background:radial-gradient(circle at 50% 55%,color-mix(in srgb,var(--pw,#fff) 55%,#fff) 0%,color-mix(in srgb,var(--pw,#fff) 40%,transparent) 38%,transparent 72%)}
+body[data-power]::after{opacity:1}
+body.power-flash::before{animation:power-flash .75s ease-out}
+@keyframes power-flash{0%{opacity:.85}100%{opacity:0}}
+body[data-power=turbo]::after{background:radial-gradient(ellipse at 50% 52%,transparent 50%,color-mix(in srgb,var(--pw) 42%,transparent) 100%),repeating-conic-gradient(from 0deg at 50% 54%,transparent 0 3.2deg,rgba(255,170,90,.22) 3.2deg 3.9deg);-webkit-mask-image:radial-gradient(ellipse at 50% 54%,transparent 28%,#000 78%);mask-image:radial-gradient(ellipse at 50% 54%,transparent 28%,#000 78%);animation:power-rush .22s ease-in-out infinite alternate}
+@keyframes power-rush{from{transform:scale(1)}to{transform:scale(1.07)}}
+body[data-power=ghost]::after{animation:power-ghost 2.2s ease-in-out infinite}
+@keyframes power-ghost{0%,100%{opacity:.75}50%{opacity:1}}
+@media(prefers-reduced-motion:reduce){body[data-power=turbo]::after,body[data-power=ghost]::after,body.power-flash::before{animation:none}}

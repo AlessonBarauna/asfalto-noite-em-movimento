@@ -13,6 +13,7 @@ import { createGolG5Model } from './gol-g5'
 import { BRAZILIAN_TRAFFIC_MODELS, createBrazilianTrafficVehicle } from './traffic-vehicles'
 import { tuning } from './tuning'
 import { applyGarageVisuals } from './garage-visuals'
+import { PowerFx } from './power-fx'
 import { Effects } from './fx'
 import { createSupercar, loadedSupercar } from './supercar'
 import { TINT_OPTIONS, WHEEL_OPTIONS } from './economy'
@@ -91,6 +92,7 @@ export class RaceGame {
   private readonly effects = new Effects()
   private readonly glow = glowTexture()
   private readonly streak = streakTexture()
+  private readonly powerFx = new PowerFx(this.glow, this.streak)
   private readonly carLights = new THREE.Group()
   private readonly headSpots: THREE.SpotLight[] = []
   private readonly tailGlows: THREE.Sprite[] = []
@@ -530,6 +532,7 @@ export class RaceGame {
     fill.target.position.set(0, 0.6, RACE_CONFIG.playerZ)
     this.carLights.add(fill, fill.target)
     this.world.scene.add(this.carLights)
+    this.world.scene.add(this.powerFx.group)
   }
 
   private updateCarLights(boosting: boolean): void {
@@ -674,7 +677,7 @@ export class RaceGame {
       const flap = Math.sin(this.elapsed * 14) * 0.22
       this.wings.children.forEach((wing, i) => { wing.rotation.z = (i === 0 ? -1 : 1) * (0.18 + flap) })
     }
-    void dt
+    this.powerFx.update(dt, this.elapsed, on ? this.power : null, this.x, this.altitude, RACE_CONFIG.playerZ, this.speed, this.playerVisual)
   }
 
   /** Distância e quase-batidas feitas com "Créditos em dobro" ativo (pagas uma segunda vez). */
@@ -698,6 +701,7 @@ export class RaceGame {
     this.powerTimer = this.powerTotal
     this.sound.power()
     this.effects.burst(new THREE.Vector3(this.x, 1.1, RACE_CONFIG.playerZ - 0.6), POWERS[id].color, 26, 7)
+    this.powerFx.trigger(id, this.x, this.altitude, RACE_CONFIG.playerZ)
     if (id === 'clear') {
       let n = 0
       for (const car of this.traffic) {
@@ -719,6 +723,7 @@ export class RaceGame {
 
   private clearPowers(): void {
     this.power = null
+    this.powerFx.update(0, this.elapsed, null, this.x, 0, RACE_CONFIG.playerZ, 0, this.playerVisual)
     this.powerTimer = 0
     this.flyY = 0
     this.altitude = 0
