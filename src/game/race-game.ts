@@ -16,7 +16,8 @@ import { applyGarageVisuals } from './garage-visuals'
 import { PowerFx } from './power-fx'
 import { Effects } from './fx'
 import { createSupercar, loadedSupercar } from './supercar'
-import type { GlbCarId } from './glb-car-list'
+import { trafficCarsForStage, type GlbCarId } from './glb-car-list'
+import { countryOfCity } from './career/world'
 import { createGlbCar, isGlbCar, loadedGlbCar, preloadGlbCar } from './glb-cars'
 import { TINT_OPTIONS, WHEEL_OPTIONS } from './economy'
 import type { ScenarioId } from './scenarios'
@@ -39,7 +40,7 @@ export type RaceSnapshot = {
 }
 
 export type RaceResult = { score: number; distance: number; nearMisses: number; carsJumped: number; hits: number; city: string; seconds: number; unranked: boolean }
-type TrafficCar = { root: THREE.Group; kind: TrafficKind; lane: number; active: boolean; tagged: boolean; speedFactor: number; width: number; length: number; height: number; jumped: boolean }
+type TrafficCar = { root: THREE.Group; kind: TrafficKind; lane: number; active: boolean; tagged: boolean; speedFactor: number; width: number; length: number; height: number; jumped: boolean; slot: number; modelId?: string; paint: THREE.Color }
 
 /** Pulo: ~1,9 m de altura e ~0,9 s no ar — passa por cima de carros comuns. */
 const JUMP_SPEED = 8.6
@@ -128,6 +129,7 @@ export class RaceGame {
     this.player.rotation.y = Math.PI // The player car faces +Z; rotate it toward the road's -Z direction.
     this.player.position.set(0, 0.02, RACE_CONFIG.playerZ)
     this.createTrafficPool()
+    this.applyTrafficTier()
     this.createCarLights()
     this.createPowerVisuals()
     this.world.scene.add(this.effects.mesh)
@@ -224,6 +226,7 @@ export class RaceGame {
   setCity(cityId: string, theme: ScenarioId): void {
     this.scenarioId = theme
     const scenario = this.world.setCity(cityId, theme)
+    this.applyTrafficTier(cityId)
     const rain = cityRain(cityId, scenario.rain) && this.renderer.rainAllowed
     this.setRain(rain)
     this.sound.setScene(theme, rain)
@@ -492,8 +495,42 @@ export class RaceGame {
       root.position.set(0, 0.02, -100 - i * 9)
       root.visible = false
       this.world.scene.add(root)
-      this.traffic.push({ root, kind, lane: 1, active: false, tagged: false, speedFactor: 1, width: model.width, length: model.length, height: 0, jumped: false })
+      this.traffic.push({ root, kind, lane: 1, active: false, tagged: false, speedFactor: 1, width: model.width, length: model.length, height: 0, jumped: false, slot: i, paint })
     }
+  }
+
+  private trafficStage = 0
+  private trafficIds: GlbCarId[] = []
+
+  /** O trânsito acompanha a fase do mapa: fases baratas com carros populares, caras com esportivos. */
+  private applyTrafficTier(cityId?: string): void {
+    const stage = (cityId ? countryOfCity(cityId)?.stage : undefined) ?? 1
+    if (stage === this.trafficStage) return
+    this.trafficStage = stage
+    const ids = trafficCarsForStage(stage)
+    void Promise.allSettled(ids.map(id => preloadGlbCar(id, true))).then(() => {
+      if (this.trafficStage === stage) this.trafficIds = ids.filter(id => loadedGlbCar(id, true))
+    })
+  }
+
+  /** Troca o visual de um carro parado na fila (nunca de um carro em cena). */
+  private assignTrafficModel(car: TrafficCar): void {
+    if ((car.kind !== 'sedan' && car.kind !== 'suv') || this.trafficIds.length === 0) return
+    const carSlots = this.traffic.filter(c => c.kind === 'sedan' || c.kind === 'suv')
+    const id = this.trafficIds[carSlots.indexOf(car) % this.trafficIds.length]
+    if (car.modelId === id) return
+    const base = loadedGlbCar(id, true)
+    if (!base) return
+    const visual = createGlbCar(id, base, car.paint, { color: '#1a2d3b', opacity: 0.85 }, true).group
+    const old = car.root.children[0]
+    car.root.remove(old)
+    car.root.add(visual)
+    car.root.children.unshift(car.root.children.pop() as THREE.Object3D) // o carro continua sendo o primeiro filho
+    car.modelId = id
+    car.height = 0
+    const box = new THREE.Box3().setFromObject(visual)
+    car.width = Math.max(1.5, box.max.x - box.min.x)
+    car.length = Math.max(3.2, box.max.z - box.min.z)
   }
 
   /** Oncoming cars carry headlight halos and a wet-road reflection streak. */
@@ -600,6 +637,7 @@ export class RaceGame {
       car.tagged = false
       car.jumped = false
       car.speedFactor = trafficSpeedFactor(difficulty.speedFactor, car.kind, this.random())
+      this.assignTrafficModel(car)
       // A paired wave arrives abreast: the third lane is always open for a clean dodge.
       car.root.position.set(laneCenter(lane), 0.02, spawnZ + (index ? -1.2 : 0))
       car.root.visible = true

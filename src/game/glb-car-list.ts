@@ -60,3 +60,22 @@ export const GLB_CAR_LIST = [
 ] as const satisfies readonly GlbCarDef[]
 
 export type GlbCarId = (typeof GLB_CAR_LIST)[number]['id']
+
+/** Carros fora do trânsito (a versão leve ficou sem forma). */
+const NO_TRAFFIC: readonly string[] = ['m4-csl']
+
+/**
+ * Carros que circulam no trânsito de uma fase do mapa (1 = Brasil … 8 = Europa famosa):
+ * fases baratas pegam os populares, as caras pegam esportivos e superesportivos.
+ * Janela deslizante sobre o catálogo ordenado por preço; sempre inclui alguns carros mais simples.
+ */
+export function trafficCarsForStage(stage: number, count = 8): GlbCarId[] {
+  const sorted = GLB_CAR_LIST.filter(c => !NO_TRAFFIC.includes(c.id)).sort((a, b) => a.price - b.price)
+  const n = sorted.length
+  const t = Math.min(1, Math.max(0, (stage - 1) / 7))
+  const width = Math.max(count, Math.round(n * 0.4))
+  const start = Math.round(t * (n - width))
+  const window = sorted.slice(start, start + width)
+  const step = window.length / count
+  return Array.from({ length: count }, (_, i) => window[Math.min(window.length - 1, Math.floor(i * step))].id)
+}
